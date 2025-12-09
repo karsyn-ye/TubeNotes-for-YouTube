@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "TubeNotes",
   "version": "1.0.0",
-  "description": "Take notes while watching YouTube videos with screenshot and transcript capture",
+  "description": "Pin 5-second video clips with transcripts, add text/audio notes, and export to HTML while watching YouTube.",
   "permissions": [
     "storage",
     "unlimitedStorage",

@@ -1143,17 +1143,27 @@
   // Export all notes to HTML file
   async function exportToHTML() {
     try {
-      const result = await chrome.storage.local.get(['tubenotes_pins']);
-      const pins = result.tubenotes_pins || [];
-      
-      if (pins.length === 0) {
-        alert('No notes to export. Pin some moments first!');
+      // Get current video ID
+      const currentVideoId = new URLSearchParams(window.location.search).get('v') || '';
+      if (!currentVideoId) {
+        alert('Please navigate to a YouTube video first.');
         return;
       }
 
-      // Group pins by video
+      const result = await chrome.storage.local.get(['tubenotes_pins']);
+      const pins = result.tubenotes_pins || [];
+      
+      // Filter pins to only include current video
+      const currentVideoPins = pins.filter(pin => pin.videoId === currentVideoId);
+      
+      if (currentVideoPins.length === 0) {
+        alert('No notes to export for this video. Pin some moments first!');
+        return;
+      }
+
+      // Group pins by video (should only be one video now, but keeping structure for consistency)
       const pinsByVideo = {};
-      pins.forEach(pin => {
+      currentVideoPins.forEach(pin => {
         if (!pinsByVideo[pin.videoId]) {
           pinsByVideo[pin.videoId] = {
             videoId: pin.videoId,
@@ -1183,7 +1193,7 @@
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      alert(`Exported ${pins.length} notes to HTML file!`);
+      alert(`Exported ${currentVideoPins.length} notes to HTML file!`);
     } catch (error) {
       console.error('Error exporting to HTML:', error);
       alert('Error exporting notes. Please try again.');
