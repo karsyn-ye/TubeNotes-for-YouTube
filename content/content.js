@@ -43,7 +43,7 @@
         </button>
       </div>
       <div class="tubenotes-pinned-list" id="tubenotes-pinned-list">
-        <div class="tubenotes-empty-state">No pinned moments yet.<br>Click "Pin" to capture a moment!</div>
+        <div class="tubenotes-empty-state">See something great?<br>Pin it and take your quick note!</div>
       </div>
     `;
 
@@ -581,7 +581,7 @@
     const currentVideoPins = pins.filter(pin => pin.videoId === currentVideoId);
 
     if (currentVideoPins.length === 0) {
-      pinnedList.innerHTML = '<div class="tubenotes-empty-state">No pinned moments yet.<br>Click "Pin" to capture a moment!</div>';
+      pinnedList.innerHTML = '<div class="tubenotes-empty-state">See something great?<br>Pin it and take your quick note!</div>';
       return;
     }
 
