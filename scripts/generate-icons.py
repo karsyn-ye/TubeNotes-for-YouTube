@@ -10,29 +10,39 @@ except ImportError:
 
 def create_icon_pil(size):
     """Create icon using PIL"""
-    img = Image.new('RGB', (size, size), color='#3ea6ff')
+    img = Image.new('RGB', (size, size), color='#000000')
     draw = ImageDraw.Draw(img)
     
-    # Draw a simple pin/note icon
-    # Draw pin shape (rounded rectangle with triangle bottom)
-    margin = size // 6
-    pin_width = size - 2 * margin
-    pin_height = (size - 2 * margin) * 2 // 3
+    # Bookmark icon: vertical rectangle with rounded top corners and V-notch at bottom
+    bookmark_width = size // 3
+    bookmark_height = size * 2 // 3
+    corner_radius = size // 12
+    v_notch_size = size // 6
+    outline_width = max(2, size // 16)
     
-    # Main rectangle
+    # Calculate center position (vertically centered)
+    bookmark_x = (size - bookmark_width) // 2
+    bookmark_y = (size - bookmark_height) // 2
+    
+    # Draw rounded rectangle for top part (above the V-notch)
+    top_rect_height = bookmark_height - v_notch_size
     draw.rounded_rectangle(
-        [margin, margin, margin + pin_width, margin + pin_height],
-        radius=size // 12,
-        fill='#ffffff'
+        [bookmark_x, bookmark_y, bookmark_x + bookmark_width, bookmark_y + top_rect_height],
+        radius=corner_radius,
+        fill='#ffffff',
+        outline='#000000',
+        width=outline_width
     )
     
-    # Triangle bottom
-    triangle_points = [
-        (margin + pin_width // 3, margin + pin_height),
-        (margin + pin_width * 2 // 3, margin + pin_height),
-        (margin + pin_width // 2, size - margin)
+    # Draw the V-notch at bottom (inverted triangle)
+    notch_bottom_y = bookmark_y + bookmark_height
+    notch_center_x = bookmark_x + bookmark_width // 2
+    v_notch_points = [
+        (bookmark_x, bookmark_y + top_rect_height),
+        (notch_center_x, notch_bottom_y),
+        (bookmark_x + bookmark_width, bookmark_y + top_rect_height)
     ]
-    draw.polygon(triangle_points, fill='#ffffff')
+    draw.polygon(v_notch_points, fill='#ffffff', outline='#000000', width=outline_width)
     
     return img
 

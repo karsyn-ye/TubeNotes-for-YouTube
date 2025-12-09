@@ -27,8 +27,13 @@
       <div class="tubenotes-header">
         <h2>TubeNotes</h2>
         <div class="tubenotes-header-actions">
-          <button id="tubenotes-export-html-btn" class="tubenotes-export-btn" aria-label="Export to HTML" title="Export to HTML file">⬀</button>
           <button id="tubenotes-sort-btn" class="tubenotes-sort-btn" aria-label="Toggle sort order" title="Toggle sort order">⇅</button>
+          <button id="tubenotes-export-html-btn" class="tubenotes-export-btn" aria-label="Export to HTML" title="Export to HTML file">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="8" width="10" height="5" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
+              <path d="M8 3V11M8 3L5.5 5.5M8 3L10.5 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
           <button id="tubenotes-close-btn" class="tubenotes-close-btn" aria-label="Close panel">×</button>
         </div>
       </div>
@@ -598,7 +603,14 @@
           <span class="tubenotes-timestamp">${formatTimestamp(pin.timestamp)}</span>
           <div class="tubenotes-item-actions">
             <button class="tubenotes-edit-btn" data-id="${pin.id}" aria-label="Edit notes" title="Add/edit notes">✎</button>
-            <button class="tubenotes-record-btn" data-id="${pin.id}" aria-label="Record audio" title="Record audio note">○</button>
+            <button class="tubenotes-record-btn" data-id="${pin.id}" aria-label="Record audio" title="Record audio note">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="8" cy="3.5" rx="2.5" ry="4.5" fill="currentColor"/>
+                <path d="M4 8 Q4 9.5 8 10.5 Q12 9.5 12 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                <rect x="7.25" y="10.5" width="1.5" height="3.5" rx="0.75" fill="currentColor"/>
+                <rect x="5.5" y="14" width="5" height="1" rx="0.5" fill="currentColor"/>
+              </svg>
+            </button>
             <button class="tubenotes-delete-btn" data-id="${pin.id}" aria-label="Delete">×</button>
           </div>
         </div>
