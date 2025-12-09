@@ -43,7 +43,7 @@
         </button>
       </div>
       <div class="tubenotes-pinned-list" id="tubenotes-pinned-list">
-        <div class="tubenotes-empty-state">See something great?<br>Pin it and take your quick note!</div>
+        <div class="tubenotes-empty-state">Learn something great?<br>Pin it and take your quick note!</div>
       </div>
     `;
 
@@ -581,7 +581,7 @@
     const currentVideoPins = pins.filter(pin => pin.videoId === currentVideoId);
 
     if (currentVideoPins.length === 0) {
-      pinnedList.innerHTML = '<div class="tubenotes-empty-state">See something great?<br>Pin it and take your quick note!</div>';
+      pinnedList.innerHTML = '<div class="tubenotes-empty-state">Learn something great?<br>Pin it and take your quick note!</div>';
       return;
     }
 
@@ -1200,14 +1200,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TubeNotes Export</title>
   <style>
+    html {
+      overflow-x: hidden;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
+      margin: 0;
+      padding: 0;
       background: #0f0f0f;
       color: #ffffff;
       line-height: 1.6;
+      width: 100vw;
+      min-height: 100vh;
+    }
+    .content-wrapper {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 27px;
+      transform: scale(0.75);
+      transform-origin: top center;
+      width: 133.333%;
+      margin-bottom: -25%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .content-wrapper > * {
+      width: 100%;
+      max-width: 1200px;
     }
     h1 {
       color: #ffffff;
@@ -1276,15 +1296,23 @@
     }
     .pin-video-container {
       margin: 10px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      width: 100%;
+      max-width: 600px;
+      box-sizing: border-box;
     }
     .pin-video-clip {
-      max-width: 100%;
+      max-width: 600px;
       width: 100%;
       border-radius: 6px;
       margin: 10px 0;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
       background: #000;
-      max-height: 400px;
+      max-height: 338px;
+      display: block;
+      box-sizing: border-box;
     }
     .pin-transcript {
       background: rgba(255, 255, 255, 0.05);
@@ -1295,19 +1323,50 @@
       color: rgba(255, 255, 255, 0.9);
     }
     .pin-notes {
-      background: rgba(255, 255, 255, 0.1);
-      padding: 12px;
-      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 8px 24px 12px 24px;
+      border-radius: 6px;
       margin: 10px 0;
-      border-left: 3px solid rgba(255, 255, 255, 0.3);
+      border-left: 3px solid rgba(255, 255, 255, 0.2);
+      white-space: pre-wrap;
+      font-size: 16px;
+      line-height: 1.5;
+      max-width: 600px;
+      width: 100%;
+      box-sizing: border-box;
+      text-align: left;
+      color: rgba(255, 255, 255, 0.95);
+    }
+    .pin-notes strong {
+      font-size: 14px;
+      display: block;
+      margin-bottom: 6px;
+      margin-top: 0;
+      padding: 0;
+      font-weight: 600;
+      text-align: left;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: rgba(255, 255, 255, 0.7);
+      line-height: 1.5;
+    }
+    .pin-notes-content {
+      display: block;
+      margin-top: 0;
+      padding-top: 0;
       white-space: pre-wrap;
     }
     .pin-audio {
       margin: 10px 0;
     }
+    .pin-audio strong {
+      display: block;
+      margin-bottom: 3px;
+    }
     .pin-audio audio {
       width: 100%;
-      max-width: 500px;
+      max-width: 350px;
+      height: 32px;
     }
     .export-info {
       color: rgba(255, 255, 255, 0.6);
@@ -1320,11 +1379,12 @@
   </style>
 </head>
 <body>
-  <h1>✨ TubeNotes Export</h1>
-  <div class="export-info">
-    Exported on: ${exportDate}<br>
-    Total notes: ${Object.values(pinsByVideo).reduce((sum, v) => sum + v.pins.length, 0)}
-  </div>
+  <div class="content-wrapper">
+    <h1>TubeNotes Export</h1>
+    <div class="export-info">
+      Exported on: ${exportDate}<br>
+      Total notes: ${Object.values(pinsByVideo).reduce((sum, v) => sum + v.pins.length, 0)}
+    </div>
 `;
 
     // Generate content for each video
@@ -1369,17 +1429,14 @@
         }
 
         if (pin.notes) {
-          html += `
-      <div class="pin-notes">
-        <strong>Notes:</strong><br>
-        ${escapeHtml(pin.notes)}
-      </div>`;
+          const trimmedNotes = pin.notes.trim();
+          html += `<div class="pin-notes"><strong>Notes:</strong><span class="pin-notes-content">${escapeHtml(trimmedNotes)}</span></div>`;
         }
 
         if (pin.audio) {
           html += `
       <div class="pin-audio">
-        <strong>Audio Note:</strong><br>
+        <strong>Audio Note:</strong>
         <audio controls>
           <source src="${pin.audio}" type="audio/webm">
           <source src="${pin.audio}" type="audio/mp4">
@@ -1397,6 +1454,7 @@
     });
 
     html += `
+  </div>
 </body>
 </html>`;
 
