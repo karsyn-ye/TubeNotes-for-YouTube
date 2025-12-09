@@ -728,26 +728,40 @@
 
     // Add click handlers for record buttons
     pinnedList.querySelectorAll('.tubenotes-record-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const pinId = e.target.getAttribute('data-id');
-        await startRecording(pinId);
-      });
+      if (!btn.hasAttribute('data-listener-attached')) {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const pinId = btn.getAttribute('data-id') || btn.closest('.tubenotes-pinned-item')?.getAttribute('data-id');
+          if (pinId) {
+            // Update button state immediately
+            btn.classList.add('recording');
+            await startRecording(pinId);
+          }
+        });
+        btn.setAttribute('data-listener-attached', 'true');
+      }
     });
 
     // Add click handlers for stop recording
     pinnedList.querySelectorAll('.tubenotes-recorder-stop').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const pinId = e.target.getAttribute('data-id');
-        await stopRecording(pinId);
-      });
+      if (!btn.hasAttribute('data-listener-attached')) {
+        btn.addEventListener('click', async (e) => {
+          const pinId = e.target.getAttribute('data-id');
+          await stopRecording(pinId);
+        });
+        btn.setAttribute('data-listener-attached', 'true');
+      }
     });
 
     // Add click handlers for cancel recording
     pinnedList.querySelectorAll('.tubenotes-recorder-cancel').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const pinId = e.target.getAttribute('data-id');
-        cancelRecording(pinId);
-      });
+      if (!btn.hasAttribute('data-listener-attached')) {
+        btn.addEventListener('click', async (e) => {
+          const pinId = e.target.getAttribute('data-id');
+          cancelRecording(pinId);
+        });
+        btn.setAttribute('data-listener-attached', 'true');
+      }
     });
 
     // Add click handlers for delete audio
@@ -784,6 +798,13 @@
 
     // Update sort button icon to reflect current sort order
     updateSortButtonIcon();
+    
+    // If any recordings are active, make sure their recorder UI is visible
+    activeRecorders.forEach((recorderData, pinId) => {
+      if (recorderData.mediaRecorder && recorderData.mediaRecorder.state !== 'inactive') {
+        showRecorder(pinId);
+      }
+    });
   }
 
   // Audio recording state
@@ -876,14 +897,41 @@
         wasPlaying: wasPlaying 
       });
       
+      // Show recorder UI BEFORE starting recording to ensure it's visible
+      showRecorder(pinId);
+      
+      // Wait a moment to ensure UI is rendered and event listeners are attached
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Double-check recorder UI is visible before starting
+      const pinItem = document.querySelector(`.tubenotes-pinned-item[data-id="${pinId}"]`);
+      if (pinItem) {
+        const recorder = pinItem.querySelector('.tubenotes-recorder');
+        if (recorder && recorder.style.display === 'none') {
+          recorder.style.display = 'block';
+        }
+      }
+      
       // Start recording
       mediaRecorder.start();
       
-      // Show recorder UI
-      showRecorder(pinId);
+      // Verify recording started and UI is visible
+      if (mediaRecorder.state === 'recording') {
+        showRecorder(pinId); // Ensure UI is visible one more time
+      }
       
     } catch (error) {
       console.error('Error starting recording:', error);
+      // Clean up on error
+      if (activeRecorders.has(pinId)) {
+        const recorderData = activeRecorders.get(pinId);
+        if (recorderData && recorderData.stream) {
+          recorderData.stream.getTracks().forEach(track => track.stop());
+        }
+        activeRecorders.delete(pinId);
+      }
+      hideRecorder(pinId);
+      
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
         alert('Microphone access denied. Please allow microphone access and try again.');
       } else {
@@ -895,12 +943,35 @@
   // Stop recording
   async function stopRecording(pinId) {
     const recorderData = activeRecorders.get(pinId);
-    if (recorderData && recorderData.mediaRecorder.state !== 'inactive') {
-      recorderData.mediaRecorder.stop();
+    if (recorderData) {
+      try {
+        if (recorderData.mediaRecorder && recorderData.mediaRecorder.state === 'recording') {
+          recorderData.mediaRecorder.stop();
+        } else if (recorderData.mediaRecorder && recorderData.mediaRecorder.state === 'paused') {
+          recorderData.mediaRecorder.stop();
+        }
+      } catch (error) {
+        console.error('Error stopping recorder:', error);
+        // Force stop the stream if recorder fails
+        if (recorderData.stream) {
+          recorderData.stream.getTracks().forEach(track => track.stop());
+        }
+        activeRecorders.delete(pinId);
+        hideRecorder(pinId);
+      }
       hideRecorder(pinId);
       
-      // Note: Video will remain paused - user can manually resume if needed
-      // We don't auto-resume to avoid interrupting their workflow
+      // Remove recording class from button
+      const pinItem = document.querySelector(`.tubenotes-pinned-item[data-id="${pinId}"]`);
+      if (pinItem) {
+        const recordBtn = pinItem.querySelector('.tubenotes-record-btn');
+        if (recordBtn) {
+          recordBtn.classList.remove('recording');
+        }
+      }
+    } else {
+      // If no recorder data but recording might be active, force cleanup
+      hideRecorder(pinId);
     }
   }
 
@@ -908,15 +979,35 @@
   function cancelRecording(pinId) {
     const recorderData = activeRecorders.get(pinId);
     if (recorderData) {
-      if (recorderData.mediaRecorder && recorderData.mediaRecorder.state !== 'inactive') {
-        recorderData.mediaRecorder.stop();
+      try {
+        if (recorderData.mediaRecorder && recorderData.mediaRecorder.state !== 'inactive') {
+          recorderData.mediaRecorder.stop();
+        }
+      } catch (error) {
+        console.error('Error canceling recorder:', error);
       }
+      
       if (recorderData.stream) {
-        recorderData.stream.getTracks().forEach(track => track.stop());
+        recorderData.stream.getTracks().forEach(track => {
+          try {
+            track.stop();
+          } catch (error) {
+            console.error('Error stopping track:', error);
+          }
+        });
       }
       activeRecorders.delete(pinId);
     }
     hideRecorder(pinId);
+    
+    // Remove recording class from button
+    const pinItem = document.querySelector(`.tubenotes-pinned-item[data-id="${pinId}"]`);
+    if (pinItem) {
+      const recordBtn = pinItem.querySelector('.tubenotes-record-btn');
+      if (recordBtn) {
+        recordBtn.classList.remove('recording');
+      }
+    }
     
     // Video remains paused after cancel - user can manually resume
   }
@@ -932,7 +1023,42 @@
         if (indicator) {
           indicator.classList.add('recording');
         }
+        
+        // Ensure event listeners are attached to stop/cancel buttons
+        const stopBtn = recorder.querySelector('.tubenotes-recorder-stop');
+        const cancelBtn = recorder.querySelector('.tubenotes-recorder-cancel');
+        
+        // Remove existing listeners if any to prevent duplicates
+        if (stopBtn) {
+          const newStopBtn = stopBtn.cloneNode(true);
+          stopBtn.parentNode.replaceChild(newStopBtn, stopBtn);
+          newStopBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await stopRecording(pinId);
+          });
+        }
+        
+        if (cancelBtn) {
+          const newCancelBtn = cancelBtn.cloneNode(true);
+          cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+          newCancelBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            cancelRecording(pinId);
+          });
+        }
+      } else {
+        // If recorder element doesn't exist, it means the item was removed or reloaded
+        // Try to reload and show recorder
+        console.warn('Recorder element not found for pinId:', pinId);
+        setTimeout(() => {
+          loadPinnedItems().then(() => {
+            showRecorder(pinId);
+          });
+        }, 200);
       }
+    } else {
+      // Pin item doesn't exist - might need to reload
+      console.warn('Pin item not found for pinId:', pinId);
     }
   }
 
