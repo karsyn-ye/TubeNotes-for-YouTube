@@ -5,7 +5,7 @@
   "description": "The essential YouTube note-taker. Pin clips with transcripts, add text/audio notes, and export your key takeaways.",
   "permissions": [
     "storage",
-    "unlimitedStorage",
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "https://www.youtube.com/*"
