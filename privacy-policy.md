@@ -15,8 +15,6 @@ TubeNotes runs locally in your browser to help you capture YouTube timestamps, t
 
 ## Permissions use
 - `storage` / `unlimitedStorage`: Save your notes, pins, transcripts, and clips locally without size surprises.
-- `activeTab` and host permission (`https://www.youtube.com/*`): Identify the current YouTube video to attach notes correctly.
-- `scripting`: Inject UI and read page elements (e.g., transcript and timestamps) on YouTube.
 
 ## Security
 - All processing happens locally in your browser. No remote code is loaded.
