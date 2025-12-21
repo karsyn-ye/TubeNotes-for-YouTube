@@ -1,0 +1,548 @@
+/* TubeNotes Side Panel Styles */
+
+#tubenotes-side-panel {
+  width: 100%;
+  background: #0f0f0f;
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  font-family: 'Roboto', 'Arial', sans-serif;
+  box-sizing: border-box;
+}
+
+.tubenotes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tubenotes-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.tubenotes-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tubenotes-export-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.tubenotes-export-btn svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.tubenotes-export-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.tubenotes-export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tubenotes-sort-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  line-height: 1;
+}
+
+.tubenotes-sort-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.tubenotes-close-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  line-height: 1;
+}
+
+.tubenotes-close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.tubenotes-controls {
+  margin-bottom: 16px;
+}
+
+.tubenotes-pin-btn {
+  width: 100%;
+  padding: 12px 16px;
+  background: #ffffff;
+  color: #000000;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-family: 'Roboto', 'Arial', sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.tubenotes-pin-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.tubenotes-pin-btn .pin-icon {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 1px;
+}
+
+.tubenotes-pin-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tubenotes-pinned-list {
+  max-height: 600px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tubenotes-empty-state {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 24px;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.tubenotes-pinned-item {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background-color 0.2s;
+}
+
+.tubenotes-pinned-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tubenotes-pinned-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.tubenotes-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tubenotes-timestamp {
+  font-size: 11px;
+  font-weight: 500;
+  color: #3ea6ff;
+  padding: 2px 6px;
+  background: rgba(62, 166, 255, 0.1);
+  border-radius: 3px;
+  transition: background-color 0.2s;
+}
+
+.tubenotes-timestamp:hover {
+  background: rgba(62, 166, 255, 0.2);
+  cursor: pointer;
+}
+
+.tubenotes-edit-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.tubenotes-edit-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.tubenotes-record-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+
+.tubenotes-record-btn svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.tubenotes-record-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.tubenotes-record-btn.recording {
+  background-color: rgba(255, 0, 0, 0.3);
+  color: #ff4444;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.tubenotes-delete-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.tubenotes-delete-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.tubenotes-video-clip {
+  width: 100%;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  display: block;
+  max-height: 180px;
+  background: #000;
+}
+
+.tubenotes-transcript {
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  margin-bottom: 4px;
+}
+
+.tubenotes-notes-display {
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.85);
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-left: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  margin-top: 4px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.tubenotes-notes-editor {
+  margin-top: 6px;
+}
+
+.tubenotes-notes-textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  resize: vertical;
+  font-family: 'Roboto', 'Arial', sans-serif;
+  box-sizing: border-box;
+}
+
+.tubenotes-notes-textarea:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tubenotes-notes-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.tubenotes-notes-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  justify-content: flex-end;
+}
+
+.tubenotes-notes-save,
+.tubenotes-notes-cancel {
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Roboto', 'Arial', sans-serif;
+  transition: all 0.2s;
+}
+
+.tubenotes-notes-save {
+  background: #ffffff;
+  color: #000000;
+}
+
+.tubenotes-notes-save:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.tubenotes-notes-cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.tubenotes-notes-cancel:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.tubenotes-audio-display {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tubenotes-audio-player {
+  flex: 1;
+  height: 32px;
+  outline: none;
+  min-width: 150px;
+}
+
+.tubenotes-audio-player::-webkit-media-controls-panel {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.tubenotes-audio-delete {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.tubenotes-audio-delete:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.tubenotes-recorder {
+  margin-top: 6px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-left: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.tubenotes-recorder-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tubenotes-recorder-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ff4444;
+  flex-shrink: 0;
+}
+
+.tubenotes-recorder-indicator.recording {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.tubenotes-recorder-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+.tubenotes-recorder-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.tubenotes-recorder-stop,
+.tubenotes-recorder-cancel {
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Roboto', 'Arial', sans-serif;
+  transition: all 0.2s;
+}
+
+.tubenotes-recorder-stop {
+  background: #ffffff;
+  color: #000000;
+}
+
+.tubenotes-recorder-stop:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.tubenotes-recorder-cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.tubenotes-recorder-cancel:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Scrollbar styling */
+.tubenotes-pinned-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.tubenotes-pinned-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tubenotes-pinned-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.tubenotes-pinned-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+
+
+/* Two-button layout for screenshot and video */
+.tubenotes-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.tubenotes-pin-screenshot,
+.tubenotes-pin-video {
+  flex: 1;
+  min-width: 0;
+}
+
+.tubenotes-pin-screenshot .pin-icon,
+.tubenotes-pin-video .pin-icon {
+  filter: none;
+}
+
+/* Screenshot styling to match video clip */
+.tubenotes-screenshot {
+  width: 100%;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  display: block;
+  max-height: 180px;
+  object-fit: contain;
+  background: #000;
+}
