@@ -87,3 +87,10 @@ python3 scripts/generate-icons.py
 
 (To be determined)
 
+## Contributing
+TubeNotes is an open-source project! If you have ideas or fixes:
+
+1. Fork the repository.
+2. Create a new branch for your feature.
+3. Submit a Pull Request. Please note: All changes to the main branch require manual review and approval by the maintainer.
+
