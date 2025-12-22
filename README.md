@@ -38,7 +38,7 @@ TubeNotes allows users to seamlessly capture and annotate moments from YouTube v
 3. While watching the video, choose your pin type:
    - **Screenshot Button**: Capture a still image of the current moment (no transcript)
    - **Video Button**: Capture a 4-second video clip with sound and automatic transcript capture
-4. **Add Text Notes**: Click the pen icon (✎) next to any pinned moment to add or edit written notes
+4. **Add Text Notes**: Click the pen icon next to any pinned moment to add or edit written notes
 5. **Record Audio**: Click the microphone icon to record an audio note (video will automatically pause)
 6. **Sort Pins**: Use the sort button in the top-right to toggle between newest-first and oldest-first
 7. **Navigate**: Click on any timestamp to jump to that point in the video
