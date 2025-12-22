@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TubeNotes",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "The essential YouTube note-taker. Pin clips with transcripts, add text/audio notes, and export your key takeaways.",
   "permissions": [
     "storage",
