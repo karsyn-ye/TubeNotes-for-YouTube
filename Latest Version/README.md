@@ -83,6 +83,14 @@ python3 scripts/generate-icons.py
 7. Test audio recording by clicking the microphone icon (grant microphone permission when prompted)
 8. Test the export functionality to verify all notes, clips, screenshots, and audio are included in the HTML file
 
+## Contribution
+
+TubeNotes is an open-source project! If you have ideas or fixes:
+
+1. Fork the repository.
+2. Create a new branch for your feature.
+3. Submit a Pull Request. Please note: All changes to the main branch require manual review and approval by the maintainer.
+
 ## License
 
 (To be determined)
