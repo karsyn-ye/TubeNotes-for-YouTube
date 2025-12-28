@@ -4,6 +4,9 @@
 (function () {
   'use strict';
 
+  // Debug: Log that script is loading
+  console.log('TubeNotes: Content script loaded on', window.location.href);
+
   // Prevent duplicate initialization if script is injected multiple times
   if (window.tubeNotesInitialized) {
     console.log('TubeNotes: Already initialized, skipping duplicate injection');
@@ -18,10 +21,41 @@
   let lastVideoId = '';
   let checkInterval = null;
   let navigationEventListenersSet = false;
+  let domObserver = null; // Observer to detect when YouTube removes our panel
+  let waitingForNavigation = false; // Flag to prevent premature injection during navigation
+  let userClosed = false; // Flag to prevent re-injection after user closes panel
 
   // Check if we're on a YouTube watch page
   function isYouTubeWatchPage() {
     return window.location.pathname === '/watch' && window.location.search.includes('v=');
+  }
+
+  // Function to update toggle switch state
+  function updateButtonState(isActive) {
+    const toggleBtn = document.querySelector('#tubenotes-toggle-btn');
+    if (!toggleBtn) return;
+
+    const track = toggleBtn.querySelector('#tubenotes-toggle-track');
+    const thumb = toggleBtn.querySelector('#tubenotes-toggle-thumb');
+    const icon = toggleBtn.querySelector('#tubenotes-toggle-icon');
+
+    if (track && thumb && icon) {
+      if (isActive) {
+        // Slide to right (52px track - 20px thumb - 4px padding = 28px)
+        thumb.style.left = '28px';
+        track.style.background = 'rgba(255, 255, 255, 0.7)';
+        icon.style.filter = 'none';
+        toggleBtn.setAttribute('aria-label', 'TubeNotes is on');
+        toggleBtn.setAttribute('title', 'TubeNotes is on');
+      } else {
+        // Slide to left
+        thumb.style.left = '4px';
+        track.style.background = 'rgba(255, 255, 255, 0.35)';
+        icon.style.filter = 'grayscale(100%)';
+        toggleBtn.setAttribute('aria-label', 'TubeNotes is off');
+        toggleBtn.setAttribute('title', 'TubeNotes is off');
+      }
+    }
   }
 
   // Create side panel HTML
@@ -34,35 +68,42 @@
       <div class="tubenotes-header">
         <h2>TubeNotes</h2>
         <div class="tubenotes-header-actions">
-          <button id="tubenotes-sort-btn" class="tubenotes-sort-btn" aria-label="Toggle sort order" title="Toggle sort order">⇅</button>
-          <button id="tubenotes-export-html-btn" class="tubenotes-export-btn" aria-label="Export to HTML" title="Export to HTML file">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="3" y="8" width="10" height="5" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-              <path d="M8 3V11M8 3L5.5 5.5M8 3L10.5 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <button id="tubenotes-sort-btn" class="tubenotes-sort-btn" aria-label="Sort" title="Sort">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>
             </svg>
           </button>
-          <button id="tubenotes-close-btn" class="tubenotes-close-btn" aria-label="Close panel">×</button>
+          <button id="tubenotes-export-html-btn" class="tubenotes-export-btn" aria-label="Export" title="Export">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+          </button>
+          <button id="tubenotes-close-btn" class="tubenotes-close-btn" aria-label="Close" title="Close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+          </button>
         </div>
       </div>
       <div class="tubenotes-controls">
         <button id="tubenotes-pin-screenshot-btn" class="tubenotes-pin-btn tubenotes-pin-screenshot">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="pin-icon">
-            <rect x="2" y="3" width="12" height="9" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-            <circle cx="5.5" cy="6" r="1" fill="currentColor"/>
-            <path d="M2 10L5 7L8 10L11 7L14 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pin-icon">
+            <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+            <circle cx="9" cy="9" r="2"/>
+            <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
           </svg>
           Screenshot
         </button>
         <button id="tubenotes-pin-video-btn" class="tubenotes-pin-btn tubenotes-pin-video">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="pin-icon">
-            <rect x="2" y="4" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-            <path d="M10 6L13 4V12L10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pin-icon">
+            <rect width="14" height="14" x="2" y="5" rx="2" ry="2"/>
+            <path d="m22 8-6 4 6 4V8z"/>
           </svg>
           Video
         </button>
       </div>
       <div class="tubenotes-pinned-list" id="tubenotes-pinned-list">
-        <div class="tubenotes-empty-state">Learn something great?<br>Pin it and take your quick note!</div>
+        <div class="tubenotes-empty-state">Learning something great?<br>Pin it and take your quick note!</div>
       </div>
     `;
 
@@ -71,15 +112,147 @@
     return panel;
   }
 
-  // Inject side panel into page
+  // Create toggle button to show/hide panel
+  function createToggleButton() {
+    // Check if button already exists
+    if (document.querySelector('#tubenotes-toggle-btn')) {
+      console.log('TubeNotes: Toggle button already exists');
+      return;
+    }
+
+    // Find YouTube's controls container (left side near timeline)
+    const controls = document.querySelector('.ytp-left-controls');
+    if (!controls) {
+      console.log('TubeNotes: Controls container not found, retrying...');
+      setTimeout(createToggleButton, 500);
+      return;
+    }
+
+    // Create toggle button
+    const toggleBtn = document.createElement('button');
+    toggleBtn.id = 'tubenotes-toggle-btn';
+    toggleBtn.className = 'ytp-button';
+    toggleBtn.setAttribute('aria-label', 'TubeNotes is off');
+    toggleBtn.setAttribute('title', 'TubeNotes is off');
+
+    // Create sliding toggle switch
+    const iconUrl = chrome.runtime.getURL('icons/icon128.png');
+    toggleBtn.innerHTML = `
+      <div id="tubenotes-toggle-track" style="
+        width: 52px !important;
+        height: 28px !important;
+        background: rgba(255, 255, 255, 0.35);
+        border-radius: 14px !important;
+        position: relative !important;
+        transition: background 0.3s ease;
+        overflow: hidden !important;
+        display: block !important;
+      ">
+        <div id="tubenotes-toggle-thumb" style="
+          width: 20px !important;
+          height: 20px !important;
+          background: black !important;
+          border-radius: 10px !important;
+          position: absolute !important;
+          top: 4px !important;
+          left: 4px !important;
+          transition: left 0.3s ease !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
+          overflow: hidden !important;
+        ">
+          <img id="tubenotes-toggle-icon" src="${iconUrl}" style="
+            width: 14px !important; 
+            height: 14px !important; 
+            filter: grayscale(100%); 
+            transition: filter 0.3s ease;
+            object-fit: contain !important;
+            display: block !important;
+            transform: scale(1.6);
+          ">
+        </div>
+      </div>
+    `;
+    toggleBtn.style.cssText = 'cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; width: 60px !important; min-width: 60px !important; height: auto !important;';
+
+
+    // Add click handler
+    toggleBtn.addEventListener('click', () => {
+      if (sidePanel && sidePanel.parentNode) {
+        // Panel exists, remove it
+        console.log('TubeNotes: Toggling panel OFF');
+        cleanupPanel(true); // Keep button when manually toggling off
+        userClosed = true;
+        updateButtonState(false);
+      } else {
+        // Panel doesn't exist, create it
+        console.log('TubeNotes: Toggling panel ON');
+        userClosed = false;
+        injectSidePanelIntoYouTube();
+        updateButtonState(true);
+      }
+    });
+
+    // Set initial state (off/left position)
+    updateButtonState(false);
+
+    // Insert button into left controls (after play button and volume)
+    controls.appendChild(toggleBtn);
+    console.log('TubeNotes: Toggle button created in left controls');
+  }
+
+  // Inject panel into YouTube's container (not independent)
+  function injectSidePanelIntoYouTube() {
+    const targetContainer = document.querySelector('#related') || document.querySelector('#secondary');
+
+    if (!targetContainer) {
+      console.log('TubeNotes: YouTube container not found');
+      return;
+    }
+
+    // Remove any existing panel
+    const existingPanel = targetContainer.querySelector('#tubenotes-side-panel');
+    if (existingPanel) {
+      existingPanel.remove();
+    }
+
+    // Create and inject panel
+    const panel = createSidePanel();
+    targetContainer.insertBefore(panel, targetContainer.firstChild);
+    sidePanel = panel;
+    isPanelOpen = true;
+    eventListenersAttached = false;
+
+    console.log('TubeNotes: Panel injected into YouTube container');
+
+    // Set up event listeners
+    setTimeout(() => {
+      setupEventListeners();
+      loadPinnedItems();
+    }, 150);
+  }
+
+  // Inject side panel into page (DISABLED - now using toggle button)
   function injectSidePanel(force = false) {
-    if (!isYouTubeWatchPage()) return;
+    console.log('TubeNotes: injectSidePanel called but disabled - use toggle button instead');
+    return; // Disabled in favor of manual toggle
+
+    console.log('TubeNotes: injectSidePanel called, force:', force);
+
+    if (!isYouTubeWatchPage()) {
+      console.log('TubeNotes: Not on watch page, aborting injection');
+      return;
+    }
 
     // Get current video ID
     const currentVideoId = new URLSearchParams(location.search).get('v') || '';
+    console.log('TubeNotes: Current video ID:', currentVideoId);
 
     // Check if panel already exists and is in the DOM for the same video
     if (!force && sidePanel && sidePanel.parentNode && lastVideoId === currentVideoId) {
+      console.log('TubeNotes: Panel already exists for this video, refreshing content');
       // Just refresh the content for current video
       loadPinnedItems();
       return;
@@ -87,36 +260,124 @@
 
     // If video changed or force recreate, clean up old panel
     if (lastVideoId !== currentVideoId || force) {
+      console.log('TubeNotes: Cleaning up old panel (video changed or forced)');
       cleanupPanel();
       lastVideoId = currentVideoId;
     }
 
     // Remove any orphaned panel references and listeners
     if (sidePanel && !sidePanel.parentNode) {
+      console.log('TubeNotes: Removing orphaned panel reference');
       removeEventListeners();
       sidePanel = null;
     }
 
-    const targetContainer = document.querySelector('#secondary');
+    // Instead of injecting into YouTube's containers (which they control),
+    // create our own fixed-position container
+    let targetContainer = document.querySelector('#tubenotes-container');
+
+    if (!targetContainer) {
+      // Find YouTube's recommendation container to get its position
+      const relatedContainer = document.querySelector('#related');
+      const secondaryContainer = document.querySelector('#secondary');
+      const referenceContainer = relatedContainer || secondaryContainer;
+
+      let containerStyles = '';
+
+      if (referenceContainer) {
+        // Get the exact position and size of YouTube's sidebar
+        const rect = referenceContainer.getBoundingClientRect();
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+        // Try to get video player height for better sizing
+        const videoPlayer = document.querySelector('#player');
+        const playerHeight = videoPlayer ? videoPlayer.getBoundingClientRect().height : 600;
+
+        containerStyles = `
+          position: absolute;
+          top: ${rect.top + scrollTop}px;
+          left: ${rect.left}px;
+          width: ${rect.width}px;
+          height: ${playerHeight}px;
+          max-height: 800px;
+          overflow-y: auto;
+          z-index: 2000;
+          pointer-events: auto;
+          background: #0f0f0f;
+        `;
+        console.log('TubeNotes: Positioning to overlay recommendations, height:', playerHeight);
+      } else {
+        // Fallback to fixed position if we can't find the reference
+        containerStyles = `
+          position: fixed;
+          top: 64px;
+          right: 0;
+          width: 402px;
+          height: calc(100vh - 64px);
+          z-index: 2000;
+          pointer-events: auto;
+          background: #0f0f0f;
+        `;
+        console.log('TubeNotes: Using fallback fixed positioning');
+      }
+
+      // Create our own container
+      targetContainer = document.createElement('div');
+      targetContainer.id = 'tubenotes-container';
+      targetContainer.style.cssText = containerStyles;
+      document.body.appendChild(targetContainer);
+      console.log('TubeNotes: Created independent container');
+    }
+
+    console.log('TubeNotes: Target container (independent):', targetContainer ? 'FOUND' : 'NOT FOUND');
 
     if (targetContainer) {
       // Remove any existing panel from container (cleanup)
       const existingPanel = targetContainer.querySelector('#tubenotes-side-panel');
       if (existingPanel) {
+        console.log('TubeNotes: Removing existing panel from DOM');
         removeEventListeners();
         existingPanel.remove();
         sidePanel = null;
       }
 
       // Create new panel
+      console.log('TubeNotes: Creating and injecting new panel');
       const panel = createSidePanel();
-      targetContainer.insertBefore(panel, targetContainer.firstChild);
+      targetContainer.appendChild(panel);
       isPanelOpen = true;
       eventListenersAttached = false; // Reset flag for new panel
 
       // Reset retry counter on successful injection
       window.tubeNotesRetryCount = 0;
 
+      console.log('TubeNotes: Panel injected successfully into independent container!');
+
+      // Verify panel is in DOM and visible
+      setTimeout(() => {
+        const panelInDom = document.querySelector('#tubenotes-side-panel');
+        if (panelInDom) {
+          const styles = window.getComputedStyle(panelInDom);
+          const parent = panelInDom.parentElement;
+          console.log('TubeNotes: Panel verification:', {
+            inDOM: true,
+            display: styles.display,
+            visibility: styles.visibility,
+            opacity: styles.opacity,
+            parentElement: parent?.tagName,
+            parentId: parent?.id,
+            parentClass: parent?.className,
+            hasParent: !!parent,
+            isFirstChild: parent?.firstChild === panelInDom,
+            siblingCount: parent?.children.length
+          });
+        } else {
+          console.error('TubeNotes: Panel NOT found in DOM after injection!');
+        }
+      }, 200);
+
+      // Temporarily disabled: DOM observer causes re-injection loop with YouTube's SPA navigation
+      // setupDOMObserver();
 
       // Wait a moment for DOM to settle, then set up event listeners
       setTimeout(() => {
@@ -125,24 +386,7 @@
         loadPinnedItems();
       }, 150);
     } else {
-      // YouTube container not ready yet - retry with exponential backoff
-      // This ensures the extension works even if YouTube loads slowly
-      const retryDelay = force ? 500 : 200; // Shorter delay for initial attempts
-      const maxRetries = 10; // Try up to 10 times (total ~5 seconds)
-
-      if (!window.tubeNotesRetryCount) {
-        window.tubeNotesRetryCount = 0;
-      }
-
-      if (window.tubeNotesRetryCount < maxRetries) {
-        window.tubeNotesRetryCount++;
-        const delay = retryDelay * Math.min(window.tubeNotesRetryCount, 3); // Cap at 3x delay
-        console.log(`TubeNotes: Waiting for YouTube to load... (attempt ${window.tubeNotesRetryCount}/${maxRetries})`);
-        setTimeout(() => injectSidePanel(force), delay);
-      } else {
-        console.warn('TubeNotes: Failed to inject panel after multiple retries. YouTube may not be fully loaded.');
-        window.tubeNotesRetryCount = 0; // Reset for next attempt
-      }
+      console.error('TubeNotes: Could not create independent container');
     }
   }
 
@@ -670,7 +914,8 @@
 
     // Disable button temporarily
     pinBtn.disabled = true;
-    pinBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="pin-icon"><rect x="2" y="3" width="12" height="9" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="5.5" cy="6" r="1" fill="currentColor"/><path d="M2 10L5 7L8 10L11 7L14 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Capturing...';
+    const screenshotIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pin-icon"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
+    pinBtn.innerHTML = `${screenshotIcon} Capturing...`;
 
     try {
       // Get current video info
@@ -685,7 +930,7 @@
 
 
       // Capture screenshot (no transcript for screenshots)
-      pinBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="pin-icon"><rect x="2" y="3" width="12" height="9" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="5.5" cy="6" r="1" fill="currentColor"/><path d="M2 10L5 7L8 10L11 7L14 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Taking screenshot...';
+      pinBtn.innerHTML = `${screenshotIcon} Taking screenshot...`;
       const screenshot = await captureScreenshot();
 
       // Save pinned item with screenshot only (no transcript)
@@ -695,14 +940,14 @@
       await loadPinnedItems();
 
       // Show success feedback
-      pinBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="pin-icon"><rect x="2" y="3" width="12" height="9" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="5.5" cy="6" r="1" fill="currentColor"/><path d="M2 10L5 7L8 10L11 7L14 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Captured!';
+      pinBtn.innerHTML = `${screenshotIcon} Captured!`;
       setTimeout(() => {
-        pinBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="pin-icon"><rect x="2" y="3" width="12" height="9" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="5.5" cy="6" r="1" fill="currentColor"/><path d="M2 10L5 7L8 10L11 7L14 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Screenshot';
+        pinBtn.innerHTML = `${screenshotIcon} Screenshot`;
         pinBtn.disabled = false;
       }, 1000);
     } catch (error) {
       console.error('Error capturing screenshot:', error);
-      pinBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="pin-icon"><rect x="2" y="3" width="12" height="9" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="5.5" cy="6" r="1" fill="currentColor"/><path d="M2 10L5 7L8 10L11 7L14 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Screenshot';
+      pinBtn.innerHTML = `${screenshotIcon} Screenshot`;
       pinBtn.disabled = false;
 
       // Handle quota exceeded error specifically
@@ -746,7 +991,8 @@
 
     // Disable button temporarily
     pinBtn.disabled = true;
-    pinBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="pin-icon"><rect x="2" y="4" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M10 6L13 4V12L10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Pinning...';
+    const videoIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pin-icon"><rect width="14" height="14" x="2" y="5" rx="2" ry="2"/><path d="m22 8-6 4 6 4V8z"/></svg>';
+    pinBtn.innerHTML = `${videoIcon} Pinning...`;
 
     try {
       // Get current video info
@@ -762,11 +1008,11 @@
 
 
       // Capture 4-second video clip from current time forward
-      pinBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="pin-icon"><rect x="2" y="4" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M10 6L13 4V12L10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Recording clip...';
+      pinBtn.innerHTML = `${videoIcon} Recording clip...`;
       const videoClip = await captureVideoClip(4);
 
       // Now capture transcript for the time range we just recorded
-      pinBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="pin-icon"><rect x="2" y="4" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M10 6L13 4V12L10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Getting transcript...';
+      pinBtn.innerHTML = `${videoIcon} Getting transcript...`;
       const transcriptStartTime = clickTimestamp;
       const transcriptEndTime = clickTimestamp + 4;
       const transcript = getTranscriptForTimeRange(transcriptStartTime, transcriptEndTime);
@@ -778,14 +1024,14 @@
       await loadPinnedItems();
 
       // Show success feedback
-      pinBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="pin-icon"><rect x="2" y="4" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M10 6L13 4V12L10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Pinned!';
+      pinBtn.innerHTML = `${videoIcon} Captured!`;
       setTimeout(() => {
-        pinBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="pin-icon"><rect x="2" y="4" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M10 6L13 4V12L10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Video';
+        pinBtn.innerHTML = `${videoIcon} Video`;
         pinBtn.disabled = false;
       }, 1000);
     } catch (error) {
       console.error('Error pinning:', error);
-      pinBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class="pin-icon"><rect x="2" y="4" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M10 6L13 4V12L10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Video';
+      pinBtn.innerHTML = `${videoIcon} Video`;
       pinBtn.disabled = false;
 
       // Handle quota exceeded error specifically
@@ -812,7 +1058,7 @@
     const currentVideoPins = pins.filter(pin => pin.videoId === currentVideoId);
 
     if (currentVideoPins.length === 0) {
-      pinnedList.innerHTML = '<div class="tubenotes-empty-state">Learn something great?<br>Pin it and take your quick note!</div>';
+      pinnedList.innerHTML = '<div class="tubenotes-empty-state">Learning something great?<br>Pin it and take your quick note!</div>';
       return;
     }
 
@@ -833,16 +1079,21 @@
         <div class="tubenotes-pinned-header">
           <span class="tubenotes-timestamp">${formatTimestamp(pin.timestamp)}</span>
           <div class="tubenotes-item-actions">
-            <button class="tubenotes-edit-btn" data-id="${pin.id}" aria-label="Edit notes" title="Add/edit notes">✎</button>
+            <button class="tubenotes-edit-btn" data-id="${pin.id}" aria-label="Edit notes" title="Add/edit notes">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+            </svg>
+            </button>
             <button class="tubenotes-record-btn" data-id="${pin.id}" aria-label="Record audio" title="Record audio note">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <ellipse cx="8" cy="3.5" rx="2.5" ry="4.5" fill="currentColor"/>
-                <path d="M4 8 Q4 9.5 8 10.5 Q12 9.5 12 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-                <rect x="7.25" y="10.5" width="1.5" height="3.5" rx="0.75" fill="currentColor"/>
-                <rect x="5.5" y="14" width="5" height="1" rx="0.5" fill="currentColor"/>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8"/>
               </svg>
             </button>
-            <button class="tubenotes-delete-btn" data-id="${pin.id}" aria-label="Delete">×</button>
+            <button class="tubenotes-delete-btn" data-id="${pin.id}" aria-label="Delete">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>
+              </svg>
+            </button>
           </div>
         </div>
         ${pin.videoClip ? `
@@ -862,7 +1113,11 @@
               <source src="${pin.audio}" type="audio/mp4">
               Your browser does not support the audio element.
             </audio>
-            <button class="tubenotes-audio-delete" data-id="${pin.id}" aria-label="Delete audio" title="Delete audio">×</button>
+            <button class="tubenotes-audio-delete" data-id="${pin.id}" aria-label="Delete audio" title="Delete audio">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 6 6 18M6 6l12 12"/>
+              </svg>
+            </button>
           </div>
         ` : ''}
         <div class="tubenotes-recorder" data-id="${pin.id}" style="display: none;">
@@ -888,7 +1143,7 @@
     // Add click handlers for edit buttons
     pinnedList.querySelectorAll('.tubenotes-edit-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const pinId = e.target.getAttribute('data-id');
+        const pinId = e.currentTarget.getAttribute('data-id');
         const pinItem = e.target.closest('.tubenotes-pinned-item');
         const notesEditor = pinItem.querySelector('.tubenotes-notes-editor');
         const notesDisplay = pinItem.querySelector('.tubenotes-notes-display');
@@ -911,7 +1166,7 @@
     // Add click handlers for save notes
     pinnedList.querySelectorAll('.tubenotes-notes-save').forEach(btn => {
       btn.addEventListener('click', async (e) => {
-        const pinId = e.target.getAttribute('data-id');
+        const pinId = e.currentTarget.getAttribute('data-id');
         const pinItem = e.target.closest('.tubenotes-pinned-item');
         const textarea = pinItem.querySelector('.tubenotes-notes-textarea');
         const notesEditor = pinItem.querySelector('.tubenotes-notes-editor');
@@ -934,7 +1189,7 @@
     // Add click handlers for cancel notes
     pinnedList.querySelectorAll('.tubenotes-notes-cancel').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const pinId = e.target.getAttribute('data-id');
+        const pinId = e.currentTarget.getAttribute('data-id');
         const pinItem = e.target.closest('.tubenotes-pinned-item');
         const notesEditor = pinItem.querySelector('.tubenotes-notes-editor');
         const notesDisplay = pinItem.querySelector('.tubenotes-notes-display');
@@ -977,7 +1232,7 @@
     pinnedList.querySelectorAll('.tubenotes-recorder-stop').forEach(btn => {
       if (!btn.hasAttribute('data-listener-attached')) {
         btn.addEventListener('click', async (e) => {
-          const pinId = e.target.getAttribute('data-id');
+          const pinId = e.currentTarget.getAttribute('data-id');
           await stopRecording(pinId);
         });
         btn.setAttribute('data-listener-attached', 'true');
@@ -988,7 +1243,7 @@
     pinnedList.querySelectorAll('.tubenotes-recorder-cancel').forEach(btn => {
       if (!btn.hasAttribute('data-listener-attached')) {
         btn.addEventListener('click', async (e) => {
-          const pinId = e.target.getAttribute('data-id');
+          const pinId = e.currentTarget.getAttribute('data-id');
           cancelRecording(pinId);
         });
         btn.setAttribute('data-listener-attached', 'true');
@@ -998,7 +1253,7 @@
     // Add click handlers for delete audio
     pinnedList.querySelectorAll('.tubenotes-audio-delete').forEach(btn => {
       btn.addEventListener('click', async (e) => {
-        const pinId = e.target.getAttribute('data-id');
+        const pinId = e.currentTarget.getAttribute('data-id');
         await deleteAudio(pinId);
       });
     });
@@ -1006,7 +1261,7 @@
     // Add click handlers for delete buttons
     pinnedList.querySelectorAll('.tubenotes-delete-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
-        const pinId = e.target.getAttribute('data-id');
+        const pinId = e.currentTarget.getAttribute('data-id');
         await deletePinnedItem(pinId);
       });
     });
@@ -1737,15 +1992,8 @@
     const sortBtn = document.getElementById('tubenotes-sort-btn');
     if (!sortBtn) return;
 
-    const result = await chrome.storage.local.get(['tubenotes_sort_order']);
-    const sortOrder = result.tubenotes_sort_order || 'newest-first';
-
-    // Update tooltip based on sort order (icon stays the same)
-    if (sortOrder === 'newest-first') {
-      sortBtn.title = 'Newest first (click to sort oldest first)';
-    } else {
-      sortBtn.title = 'Oldest first (click to sort newest first)';
-    }
+    sortBtn.title = 'Sort';
+    sortBtn.setAttribute('aria-label', 'Sort');
   }
 
   // Store bound event handlers
@@ -1776,10 +2024,10 @@
 
     if (closeBtn && !closeBtn.hasAttribute('data-listener-attached')) {
       closeBtnHandler = () => {
-        if (sidePanel) {
-          sidePanel.style.display = 'none';
-          isPanelOpen = false;
-        }
+        console.log('TubeNotes: Close button clicked, cleaning up panel');
+        userClosed = true; // Prevent auto re-injection
+        cleanupPanel(true);
+        updateButtonState(false);
       };
       closeBtn.addEventListener('click', closeBtnHandler);
       closeBtn.setAttribute('data-listener-attached', 'true');
@@ -1832,7 +2080,7 @@
   }
 
   // Clean up panel and listeners
-  function cleanupPanel() {
+  function cleanupPanel(keepButton = false) {
     if (sidePanel && sidePanel.parentNode) {
       removeEventListeners();
       sidePanel.remove();
@@ -1840,18 +2088,80 @@
     sidePanel = null;
     isPanelOpen = false;
     eventListenersAttached = false;
+
+    // Disconnect DOM observer
+    if (domObserver) {
+      domObserver.disconnect();
+      domObserver = null;
+    }
+
+    // Remove the container so it can be recreated with correct positioning
+    const container = document.querySelector('#tubenotes-container');
+    if (container) {
+      container.remove();
+      console.log('TubeNotes: Removed container for cleanup');
+    }
+
+    // Remove toggle button so it can be recreated on new video
+    if (!keepButton) {
+      const toggleBtn = document.querySelector('#tubenotes-toggle-btn');
+      if (toggleBtn) {
+        toggleBtn.remove();
+        console.log('TubeNotes: Removed toggle button for cleanup');
+      }
+    }
+  }
+
+  // Setup DOM observer to detect when YouTube removes our panel
+  function setupDOMObserver() {
+    // Disconnect existing observer if any
+    if (domObserver) {
+      domObserver.disconnect();
+    }
+
+    const targetContainer = document.querySelector('#secondary');
+    if (!targetContainer) {
+      console.log('TubeNotes: Cannot setup DOM observer, #secondary not found');
+      return;
+    }
+
+    console.log('TubeNotes: Setting up DOM observer to watch for panel removal');
+
+    domObserver = new MutationObserver((mutations) => {
+      // Check if our panel still exists in the DOM
+      if (sidePanel && !document.contains(sidePanel)) {
+        console.log('TubeNotes: Panel was removed by YouTube, re-injecting...');
+        sidePanel = null;
+        // Re-inject after a short delay to let YouTube finish its DOM updates
+        setTimeout(() => {
+          if (isYouTubeWatchPage()) {
+            injectSidePanel(true);
+          }
+        }, 100);
+      }
+    });
+
+    // Observe the secondary container for child list changes
+    domObserver.observe(targetContainer, {
+      childList: true,
+      subtree: false
+    });
   }
 
   // Setup navigation listeners (call once)
   function setupNavigationListeners() {
     if (navigationEventListenersSet) return;
 
+    console.log('TubeNotes: Setting up navigation listeners and interval check');
+
     // Listen for YouTube navigation events (may not always fire, so we have fallback)
     try {
       document.addEventListener('yt-navigate-start', handleNavigationStart);
       document.addEventListener('yt-navigate-finish', handleNavigationFinish);
+      console.log('TubeNotes: YouTube navigation events registered');
     } catch (e) {
       // Events might not be available, that's okay
+      console.log('TubeNotes: YouTube navigation events not available');
     }
 
     // Listen to popstate for back/forward navigation
@@ -1863,6 +2173,7 @@
     }
 
     checkInterval = setInterval(checkVideoChange, 300);
+    console.log('TubeNotes: Interval check started (every 300ms)');
 
     navigationEventListenersSet = true;
   }
@@ -1901,55 +2212,50 @@
   function checkVideoChange() {
     if (!isYouTubeWatchPage()) {
       if (sidePanel) {
+        console.log('TubeNotes: Left watch page, cleaning up panel');
         cleanupPanel();
       }
+      waitingForNavigation = false;
       return;
     }
 
     const currentVideoId = new URLSearchParams(location.search).get('v') || '';
 
     if (currentVideoId && currentVideoId !== lastVideoId) {
+      console.log(`TubeNotes: Video changed from ${lastVideoId} to ${currentVideoId}`);
       lastVideoId = currentVideoId;
       cleanupPanel();
+      waitingForNavigation = true;
+      userClosed = false; // Reset on video change
 
-      // Wait for YouTube to finish navigation
+      // Wait for YouTube to finish navigation, then create toggle button
       setTimeout(() => {
+        waitingForNavigation = false;
         if (isYouTubeWatchPage()) {
-          injectSidePanel(true);
+          console.log('TubeNotes: Creating toggle button for new video');
+          createToggleButton();
         }
       }, 1000);
-    } else if (!sidePanel && currentVideoId) {
-      // Panel doesn't exist but we're on a video page - inject it
-      injectSidePanel(true);
     }
   }
 
   // Initialize when page loads
   function init() {
+    console.log('TubeNotes: Initializing...', 'readyState:', document.readyState, 'URL:', window.location.href);
+
     // Reset retry counter for fresh page load
     window.tubeNotesRetryCount = 0;
 
     // Initialize last video ID
     lastVideoId = new URLSearchParams(location.search).get('v') || '';
 
+    // Always set up navigation listeners
+    setupNavigationListeners();
+
+    // Create toggle button instead of auto-injecting panel
     if (isYouTubeWatchPage()) {
-      // Setup navigation listeners first
-      setupNavigationListeners();
-
-      // Try to inject immediately
-      injectSidePanel(true);
-
-      // Also try again after a short delay in case YouTube isn't fully ready
-      // This ensures we catch the panel even if the first attempt is too early
-      setTimeout(() => {
-        if (isYouTubeWatchPage() && !sidePanel) {
-          injectSidePanel(true);
-        }
-      }, 300);
-    } else {
-      // Not on watch page yet, but set up navigation listeners
-      // so we can detect when user navigates to a video
-      setupNavigationListeners();
+      console.log('TubeNotes: On watch page, creating toggle button');
+      createToggleButton();
     }
   }
 

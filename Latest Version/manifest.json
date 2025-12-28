@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "TubeNotes",
   "version": "1.1.0",
-  "description": "The essential YouTube note-taker. Pin clips with transcripts, add text/audio notes, and export your key takeaways.",
+  "description": "Pin YouTube screenshots/video clips, add text/audio notes, and export in one click.",
   "permissions": [
     "storage",
     "unlimitedStorage"
@@ -43,7 +43,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "content/sidePanel.html"
+        "content/sidePanel.html",
+        "icons/*.png"
       ],
       "matches": [
         "https://www.youtube.com/*"

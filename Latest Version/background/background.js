@@ -1,11 +1,19 @@
 // Background service worker for TubeNotes Chrome extension
-// Minimal background script for future message handling
+// Handles extension lifecycle events
 
-// Listen for messages from content scripts (for future use)
+// Handle extension installation or update
+chrome.runtime.onInstalled.addListener(async (details) => {
+    console.log('TubeNotes: Extension installed/updated', details.reason);
+
+    // Note: Auto-injection of content scripts into existing tabs is disabled 
+    // to minimize permissions (removed "scripting" permission).
+    // Users will need to refresh existing YouTube tabs to use the extension.
+});
+
+// Listen for messages from content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('TubeNotes: Received message from content script:', message);
 
-    // Handle any messages from content scripts here if needed
     if (message.type === 'TUBENOTES_READY') {
         console.log('TubeNotes: Content script is ready in tab', sender.tab?.id);
     }
