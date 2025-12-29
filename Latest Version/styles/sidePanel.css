@@ -558,3 +558,81 @@
   object-fit: contain;
   background: #000;
 }
+
+/* Custom Checkbox Styling */
+.tubenotes-privacy-wrapper {
+  width: 100%;
+  margin-bottom: 12px;
+  text-align: left;
+  display: flex !important;
+  align-items: flex-start !important;
+  /* Start aligned for multi-line text */
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.tubenotes-privacy-wrapper input[type="checkbox"] {
+  display: none;
+  /* Hide native */
+}
+
+.tubenotes-checkbox-visual {
+  width: 15px;
+  height: 15px;
+  min-width: 15px;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  margin-top: 2px;
+  margin-left: 1px;
+  /* Subtle offset to align visually with input border curvature */
+}
+
+/* Checked State: White background */
+.tubenotes-privacy-wrapper input:checked+.tubenotes-checkbox-visual {
+  background: #ffffff;
+  border-color: #ffffff;
+}
+
+/* Toggle SVG visibility */
+.tubenotes-checkbox-visual svg {
+  width: 10px;
+  height: 10px;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.tubenotes-privacy-wrapper input:checked+.tubenotes-checkbox-visual svg {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.tubenotes-privacy-wrapper:hover .tubenotes-checkbox-visual {
+  border-color: rgba(255, 255, 255, 0.8);
+}
+
+.tubenotes-privacy-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+  user-select: none;
+  padding-top: 0;
+  /* Align with box */
+}
+
+.tubenotes-privacy-label a {
+  color: #ffffff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tubenotes-privacy-label a:hover {
+  opacity: 0.8;
+}

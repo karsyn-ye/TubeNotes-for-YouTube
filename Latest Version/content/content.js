@@ -5,6 +5,7 @@
   'use strict';
 
   // Debug: Log that script is loading
+  console.log('%c TubeNotes: NEW ANALYTICS VERSION LOADED ', 'background: #000; color: #00ff00; font-size: 16px; font-weight: bold;');
   console.log('TubeNotes: Content script loaded on', window.location.href);
 
   // Prevent duplicate initialization if script is injected multiple times
@@ -24,6 +25,50 @@
   let domObserver = null; // Observer to detect when YouTube removes our panel
   let waitingForNavigation = false; // Flag to prevent premature injection during navigation
   let userClosed = false; // Flag to prevent re-injection after user closes panel
+
+  // Firebase Configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyDbypybuQ9JuPhGNKnY_N6fzIVROGyKs8Y",
+    authDomain: "tubenotes-71232.firebaseapp.com",
+    projectId: "tubenotes-71232",
+    storageBucket: "tubenotes-71232.firebasestorage.app",
+    messagingSenderId: "816541802008",
+    appId: "1:816541802008:web:f8aec607ee2e6164dd2d6d"
+  };
+
+  // Analytics State - Proxy to Background
+  const analytics = {
+    logEvent: (eventName, params = {}) => {
+      try {
+        // Only attempt to send if extension context is valid
+        if (chrome.runtime?.id) {
+          console.log('TubeNotes: Proxying event to background:', eventName);
+          chrome.runtime.sendMessage({
+            type: 'ANALYTICS_EVENT',
+            eventName,
+            params
+          }).catch(() => {
+            // Background script might be waking up or unreachable
+          });
+        }
+      } catch (e) {
+        // Silently fail to avoid console noise
+      }
+    }
+  };
+  let sessionStartTime = 0;
+
+  // Initialize Firebase (Required for Auth)
+  try {
+    if (typeof firebase !== 'undefined') {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      // Note: Analytics is handled via proxy to background script
+    }
+  } catch (e) {
+    console.error('TubeNotes: Firebase init failed', e);
+  }
 
   // Check if we're on a YouTube watch page
   function isYouTubeWatchPage() {
@@ -58,16 +103,275 @@
     }
   }
 
+  // Check login status (Delegated to Background Script)
+  function checkLoginStatus() {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: 'AUTH_CHECK' }, (response) => {
+        if (chrome.runtime.lastError) {
+          // Background might not be listening yet or context invalidated
+          // Fallback to false
+          resolve(false);
+        } else {
+          resolve(response && response.isAuthenticated);
+        }
+      });
+    });
+  }
+
+  // Create side panel HTML
+
   // Create side panel HTML
   function createSidePanel() {
-    // Always create a fresh panel (don't reuse)
-    // Create new panel
     const panel = document.createElement('div');
     panel.id = 'tubenotes-side-panel';
+    panel.innerHTML = '<div style="padding: 20px; text-align: center; color: #aaa;">Loading...</div>';
+
+    // Analytics: Open App
+    if (analytics) {
+      analytics.logEvent('open_app', { screen_name: 'SidePanel' });
+      sessionStartTime = Date.now();
+    }
+
+    sidePanel = panel;
+    eventListenersAttached = false;
+
+    // Check login status
+    checkLoginStatus().then(isLoggedIn => {
+      if (isLoggedIn) renderMainInterface(panel);
+      else renderLoginInterface(panel);
+    });
+
+    return panel;
+  }
+
+  // Render panel content helper (legacy support if needed)
+  function renderPanelContent(panel, isLoggedIn) {
+    if (isLoggedIn) renderMainInterface(panel);
+    else renderLoginInterface(panel);
+  }
+
+  // Render the Login/Signup Interface
+  function renderLoginInterface(panel) {
+    let isSignUp = false; // Toggle state
+
+    // Analytics: See Login
+    if (analytics) analytics.logEvent('see_login');
+
+    const renderForm = () => {
+      // Safety check: if panel was removed, stop
+      if (!panel) return;
+
+      panel.innerHTML = `
+        <div class="tubenotes-header">
+          <h2>TubeNotes</h2>
+          <div class="tubenotes-header-actions">
+            <button id="tubenotes-close-btn" class="tubenotes-close-btn" aria-label="Close" title="Close">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 6 6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="tubenotes-login-container" style="
+          padding: 40px 24px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: calc(100% - 60px);
+          text-align: center;
+        ">
+          <h3 style="margin: 0 0 32px 0; font-size: 20px; color: white; font-weight: 500;">${isSignUp ? 'Create Account' : 'User Login'}</h3>
+
+
+          <div style="width: 100%; margin-bottom: 12px;">
+            <input type="email" id="tubenotes-email" placeholder="Email address" style="
+              width: 100%;
+              padding: 12px;
+              background: rgba(255, 255, 255, 0.05);
+              border: 1px solid rgba(255, 255, 255, 0.3);
+              border-radius: 8px;
+              color: white;
+              font-size: 14px;
+              box-sizing: border-box;
+              font-family: inherit;
+              outline: none;
+            ">
+          </div>
+
+          <div style="width: 100%; margin-bottom: 8px;">
+            <input type="password" id="tubenotes-password" placeholder="Password" style="
+              width: 100%;
+              padding: 12px;
+              background: rgba(255, 255, 255, 0.05);
+              border: 1px solid rgba(255, 255, 255, 0.3);
+              border-radius: 8px;
+              color: white;
+              font-size: 14px;
+              box-sizing: border-box;
+              font-family: inherit;
+              outline: none;
+            ">
+          </div>
+
+          ${isSignUp ? `
+          <label class="tubenotes-privacy-wrapper">
+            <input type="checkbox" id="tubenotes-privacy-check">
+            <div class="tubenotes-checkbox-visual">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="tubenotes-privacy-label">
+              I have read and accept the <a href="https://docs.google.com/document/d/1iAK27f3kbzE5jAP0GtygHFRY_-NyNN4-r4o4djpe6dA/edit?usp=sharing" target="_blank">Privacy Policy</a>.
+            </div>
+          </label>
+          ` : ''}
+
+          <div id="tubenotes-auth-error" style="color: #ff4444; font-size: 12px; display: none; margin-bottom: 0; text-align: left; width: 100%; box-sizing: border-box; padding: 0 12px;"></div>
+
+          <button id="tubenotes-auth-btn" style="
+            width: 100%;
+            margin-top: 24px;
+            padding: 12px;
+            background: #ffffff;
+            color: black;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 16px;
+            font-family: inherit;
+          ">
+            ${isSignUp ? 'Sign Up' : 'Log In'}
+          </button>
+          
+          <div style="font-size: 13px; color: #aaa;">
+            ${isSignUp ? 'Already have an account?' : 'Not yet a user?'} 
+            <button id="tubenotes-toggle-auth" style="
+              background: none; 
+              border: none; 
+              color: #ffffff; 
+              cursor: pointer; 
+              font-weight: 500; 
+              padding: 0; 
+              margin-left: 4px; 
+              text-decoration: underline;
+              font-size: 13px;
+              font-family: inherit;
+            ">
+              ${isSignUp ? 'Log In' : 'Sign Up'}
+            </button>
+            ${!isSignUp ? '<div style="font-size: 11px; color: #888; margin-top: 4px;">It\'s FREE and takes less than 1 minute!</div>' : ''}
+          </div>
+        </div>
+      `;
+
+      // Attach Listeners
+      const emailInput = panel.querySelector('#tubenotes-email');
+      const passInput = panel.querySelector('#tubenotes-password');
+      const authBtn = panel.querySelector('#tubenotes-auth-btn');
+      const toggleBtn = panel.querySelector('#tubenotes-toggle-auth');
+      const closeBtn = panel.querySelector('#tubenotes-close-btn');
+      const errorMsg = panel.querySelector('#tubenotes-auth-error');
+
+      // Toggle Mode
+      toggleBtn.addEventListener('click', () => {
+        isSignUp = !isSignUp;
+        // Analytics: Click Signup
+        if (isSignUp && analytics) analytics.logEvent('click_signup');
+        renderForm();
+      });
+
+      // Submit
+      authBtn.addEventListener('click', () => {
+        const email = emailInput.value.trim();
+        const password = passInput.value;
+
+        if (!email || !password) {
+          errorMsg.textContent = "* Please enter email and password.";
+          errorMsg.style.display = 'block';
+          return;
+        }
+
+        if (isSignUp) {
+          if (password.length < 6) {
+            errorMsg.textContent = "* Min. 6 characters.";
+            errorMsg.style.display = 'block';
+            return;
+          }
+
+          const privacyCheck = panel.querySelector('#tubenotes-privacy-check');
+          if (privacyCheck && !privacyCheck.checked) {
+            errorMsg.textContent = "* Please accept the Privacy Policy.";
+            errorMsg.style.display = 'block';
+            return;
+          }
+        }
+
+        authBtn.textContent = "Processing...";
+        authBtn.disabled = true;
+        errorMsg.style.display = 'none';
+
+        const msgType = isSignUp ? 'AUTH_SIGNUP' : 'AUTH_LOGIN';
+
+        chrome.runtime.sendMessage({ type: msgType, email, password }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error("Auth error:", chrome.runtime.lastError);
+            errorMsg.textContent = "* Connection error. Please reload the page.";
+            errorMsg.style.display = 'block';
+            authBtn.textContent = isSignUp ? 'Sign Up' : 'Log In';
+            authBtn.disabled = false;
+            return;
+          }
+
+          if (response && response.success) {
+            // Analytics: Sign Up / Login Success
+            if (analytics) {
+              analytics.logEvent(isSignUp ? 'sign_up' : 'login', { method: 'password' });
+            }
+            renderMainInterface(panel);
+          } else {
+            let msg = response.error || "Authentication failed.";
+            if (response.code === 'auth/wrong-password' || response.code === 'auth/user-not-found' || response.code === 'auth/invalid-credential') {
+              msg = "Incorrect email or password.";
+            }
+            if (response.code === 'auth/email-already-in-use') msg = "Email already in use.";
+            if (response.code === 'auth/weak-password') msg = "Min. 6 characters.";
+
+            errorMsg.textContent = "* " + msg;
+            errorMsg.style.display = 'block';
+            authBtn.textContent = isSignUp ? 'Sign Up' : 'Log In';
+            authBtn.disabled = false;
+          }
+        });
+      });
+
+      // Close
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+          // Analytics: Auth Abandon
+          if (analytics) analytics.logEvent('auth_abandon');
+          userClosed = true;
+          cleanupPanel(true);
+          updateButtonState(false);
+        });
+      }
+    };
+
+    renderForm();
+  }
+
+  // Render the Main Interface (Pins, Buttons, etc.)
+  function renderMainInterface(panel) {
+    // Add Sign Out SVG icon (a door with arrow)
     panel.innerHTML = `
       <div class="tubenotes-header">
         <h2>TubeNotes</h2>
         <div class="tubenotes-header-actions">
+
           <button id="tubenotes-sort-btn" class="tubenotes-sort-btn" aria-label="Sort" title="Sort">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>
@@ -107,10 +411,25 @@
       </div>
     `;
 
-    sidePanel = panel;
-    eventListenersAttached = false; // Reset flag when creating new panel
-    return panel;
+    // Re-attach listeners for the main interface
+    // Re-attach listeners for the main interface
+    eventListenersAttached = false; // Force re-attach since we replaced innerHTML
+    setupEventListeners();
+    loadPinnedItems();
+
+    // Attach Sign Out Listener
+    const signOutBtn = panel.querySelector('#tubenotes-signout-btn');
+    if (signOutBtn && auth) {
+      signOutBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to sign out?')) {
+          auth.signOut().then(() => {
+            // onAuthStateChanged will handle the UI switch to Login
+          }).catch(e => console.error('Sign out error:', e));
+        }
+      });
+    }
   }
+
 
   // Create toggle button to show/hide panel
   function createToggleButton() {
@@ -136,44 +455,51 @@
     toggleBtn.setAttribute('title', 'TubeNotes is off');
 
     // Create sliding toggle switch
-    const iconUrl = chrome.runtime.getURL('icons/icon128.png');
+    let iconUrl;
+    try {
+      iconUrl = chrome.runtime.getURL('icons/icon128.png');
+    } catch (e) {
+      console.warn('TubeNotes: Extension context invalidated, stopping UI creation.');
+      return;
+    }
+
     toggleBtn.innerHTML = `
-      <div id="tubenotes-toggle-track" style="
-        width: 52px !important;
-        height: 28px !important;
-        background: rgba(255, 255, 255, 0.35);
-        border-radius: 14px !important;
-        position: relative !important;
-        transition: background 0.3s ease;
-        overflow: hidden !important;
-        display: block !important;
+    <div id="tubenotes-toggle-track" style="
+      width: 52px!important;
+      height: 28px!important;
+      background: rgba(255, 255, 255, 0.35);
+      border-radius: 14px!important;
+      position: relative!important;
+      transition: background 0.3s ease;
+      overflow: hidden!important;
+      display: block!important;
+    ">
+      <div id="tubenotes-toggle-thumb" style="
+        width: 20px!important;
+        height: 20px!important;
+        background: black!important;
+        border-radius: 10px!important;
+        position: absolute!important;
+        top: 4px!important;
+        left: 4px!important;
+        transition: left 0.3s ease!important;
+        display: flex!important;
+        align-items: center!important;
+        justify-content: center!important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3)!important;
+        overflow: hidden!important;
       ">
-        <div id="tubenotes-toggle-thumb" style="
-          width: 20px !important;
-          height: 20px !important;
-          background: black !important;
-          border-radius: 10px !important;
-          position: absolute !important;
-          top: 4px !important;
-          left: 4px !important;
-          transition: left 0.3s ease !important;
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
-          overflow: hidden !important;
+        <img id="tubenotes-toggle-icon" src="${iconUrl}" style="
+          width: 14px!important;
+          height: 14px!important;
+          filter: grayscale(100%);
+          transition: filter 0.3s ease;
+          object-fit: contain!important;
+          display: block!important;
+          transform: scale(1.6);
         ">
-          <img id="tubenotes-toggle-icon" src="${iconUrl}" style="
-            width: 14px !important; 
-            height: 14px !important; 
-            filter: grayscale(100%); 
-            transition: filter 0.3s ease;
-            object-fit: contain !important;
-            display: block !important;
-            transform: scale(1.6);
-          ">
-        </div>
       </div>
+    </div>
     `;
     toggleBtn.style.cssText = 'cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; width: 60px !important; min-width: 60px !important; height: auto !important;';
 
@@ -227,11 +553,11 @@
 
     console.log('TubeNotes: Panel injected into YouTube container');
 
-    // Set up event listeners
-    setTimeout(() => {
-      setupEventListeners();
-      loadPinnedItems();
-    }, 150);
+    // Set up event listeners - handled by renderMainInterface after checkLoginStatus
+    // setTimeout(() => {
+    //   setupEventListeners();
+    //   loadPinnedItems();
+    // }, 150);
   }
 
   // Inject side panel into page (DISABLED - now using toggle button)
@@ -294,30 +620,30 @@
         const playerHeight = videoPlayer ? videoPlayer.getBoundingClientRect().height : 600;
 
         containerStyles = `
-          position: absolute;
-          top: ${rect.top + scrollTop}px;
-          left: ${rect.left}px;
-          width: ${rect.width}px;
-          height: ${playerHeight}px;
-          max-height: 800px;
-          overflow-y: auto;
-          z-index: 2000;
-          pointer-events: auto;
-          background: #0f0f0f;
-        `;
+  position: absolute;
+  top: ${rect.top + scrollTop}px;
+  left: ${rect.left}px;
+  width: ${rect.width}px;
+  height: ${playerHeight}px;
+  max-height: 800px;
+  overflow-y: auto;
+  z-index: 2000;
+  pointer-events: auto;
+  background: #0f0f0f;
+  `;
         console.log('TubeNotes: Positioning to overlay recommendations, height:', playerHeight);
       } else {
         // Fallback to fixed position if we can't find the reference
         containerStyles = `
-          position: fixed;
-          top: 64px;
-          right: 0;
-          width: 402px;
-          height: calc(100vh - 64px);
-          z-index: 2000;
-          pointer-events: auto;
-          background: #0f0f0f;
-        `;
+  position: fixed;
+  top: 64px;
+  right: 0;
+  width: 402px;
+  height: calc(100vh - 64px);
+  z-index: 2000;
+  pointer-events: auto;
+  background: #0f0f0f;
+  `;
         console.log('TubeNotes: Using fallback fixed positioning');
       }
 
@@ -501,7 +827,7 @@
     // Sort by time and join
     transcriptSegments.sort((a, b) => a.time - b.time);
     const transcriptText = transcriptSegments.map(seg => seg.text).join(' ');
-    console.log(`TubeNotes: Captured ${transcriptSegments.length} segments for range ${startTime.toFixed(1)}s-${endTime.toFixed(1)}s`);
+    console.log(`TubeNotes: Captured ${transcriptSegments.length} segments for range ${startTime.toFixed(1)}s - ${endTime.toFixed(1)} s`);
 
     return transcriptText || getCurrentTranscript(); // Fallback to current if no range found
   }
@@ -519,7 +845,7 @@
   function formatTimestamp(seconds) {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, '0')} `;
   }
 
   // Compress image data URL
@@ -898,6 +1224,10 @@
   async function handlePinScreenshotClick() {
     const pinBtn = document.getElementById('tubenotes-pin-screenshot-btn');
     if (!pinBtn) return;
+    console.log('TubeNotes: Pin Screenshot button clicked');
+
+    // Analytics: Pin Screenshot - Log immediately
+    if (analytics) analytics.logEvent('pin_screenshot');
 
     // Validate we're on a YouTube watch page
     if (!isYouTubeWatchPage()) {
@@ -933,6 +1263,8 @@
       pinBtn.innerHTML = `${screenshotIcon} Taking screenshot...`;
       const screenshot = await captureScreenshot();
 
+      // Graphics logic...
+
       // Save pinned item with screenshot only (no transcript)
       const pinData = await savePinnedItem('', '', clickTimestamp, videoId, videoTitle, screenshot);
 
@@ -965,6 +1297,10 @@
 
     const pinBtn = document.getElementById('tubenotes-pin-video-btn');
     if (!pinBtn) return;
+    console.log('TubeNotes: Pin Video button clicked');
+
+    // Analytics: Pin Video - Log immediately
+    if (analytics) analytics.logEvent('pin_video');
 
     // Validate we're on a YouTube watch page
     if (!isYouTubeWatchPage()) {
@@ -1016,6 +1352,8 @@
       const transcriptStartTime = clickTimestamp;
       const transcriptEndTime = clickTimestamp + 4;
       const transcript = getTranscriptForTimeRange(transcriptStartTime, transcriptEndTime);
+
+      // Analytics logic moved to top
 
       // Save pinned item
       const pinData = await savePinnedItem(transcript, videoClip, clickTimestamp, videoId, videoTitle);
@@ -1075,27 +1413,27 @@
 
     // Render pinned items
     pinnedList.innerHTML = currentVideoPins.map(pin => `
-      <div class="tubenotes-pinned-item" data-id="${pin.id}">
-        <div class="tubenotes-pinned-header">
-          <span class="tubenotes-timestamp">${formatTimestamp(pin.timestamp)}</span>
-          <div class="tubenotes-item-actions">
-            <button class="tubenotes-edit-btn" data-id="${pin.id}" aria-label="Edit notes" title="Add/edit notes">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+    <div class="tubenotes-pinned-item" data-id="${pin.id}">
+      <div class="tubenotes-pinned-header">
+        <span class="tubenotes-timestamp">${formatTimestamp(pin.timestamp)}</span>
+        <div class="tubenotes-item-actions">
+          <button class="tubenotes-edit-btn" data-id="${pin.id}" aria-label="Edit notes" title="Add/edit notes">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
             </svg>
-            </button>
-            <button class="tubenotes-record-btn" data-id="${pin.id}" aria-label="Record audio" title="Record audio note">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8"/>
-              </svg>
-            </button>
-            <button class="tubenotes-delete-btn" data-id="${pin.id}" aria-label="Delete">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>
-              </svg>
-            </button>
-          </div>
+          </button>
+          <button class="tubenotes-record-btn" data-id="${pin.id}" aria-label="Record audio" title="Record audio note">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8" />
+            </svg>
+          </button>
+          <button class="tubenotes-delete-btn" data-id="${pin.id}" aria-label="Delete">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" />
+            </svg>
+          </button>
         </div>
+      </div>
         ${pin.videoClip ? `
           <video class="tubenotes-video-clip" controls preload="metadata">
             <source src="${pin.videoClip}" type="video/webm">
@@ -1103,7 +1441,8 @@
           </video>
         ` : pin.screenshot ? `
           <img src="${pin.screenshot}" alt="Video frame at ${formatTimestamp(pin.timestamp)}" class="tubenotes-screenshot" />
-        ` : ''}
+        ` : ''
+      }
         ${pin.transcript ? `<div class="tubenotes-transcript">${pin.transcript}</div>` : ''}
         ${pin.notes ? `<div class="tubenotes-notes-display">${pin.notes}</div>` : ''}
         ${pin.audio ? `
@@ -1119,7 +1458,8 @@
               </svg>
             </button>
           </div>
-        ` : ''}
+        ` : ''
+      }
         <div class="tubenotes-recorder" data-id="${pin.id}" style="display: none;">
           <div class="tubenotes-recorder-status">
             <span class="tubenotes-recorder-indicator"></span>
@@ -1137,7 +1477,7 @@
             <button class="tubenotes-notes-cancel" data-id="${pin.id}">Cancel</button>
           </div>
         </div>
-      </div>
+      </div >
     `).join('');
 
     // Add click handlers for edit buttons
@@ -1174,6 +1514,9 @@
         if (textarea) {
           const notes = textarea.value.trim();
           await savePinnedNotes(pinId, notes);
+
+          // Analytics: Add Text Note
+          if (analytics && notes) analytics.logEvent('add_text_note');
 
           // Hide editor, show display (if notes exist)
           if (notesEditor) {
@@ -1347,6 +1690,9 @@
         reader.onloadend = async () => {
           const audioDataUrl = reader.result;
           await savePinnedAudio(pinId, audioDataUrl);
+
+          // Analytics: Add Audio Note
+          if (analytics) analytics.logEvent('add_audio_note');
 
           // Stop all tracks
           stream.getTracks().forEach(track => track.stop());
@@ -1636,8 +1982,13 @@
         return;
       }
 
-      const result = await chrome.storage.local.get(['tubenotes_pins']);
+      // Analytics: Share (Export)
+      if (analytics) analytics.logEvent('share', { content_type: 'html_export' });
+
+      const result = await chrome.storage.local.get(['tubenotes_pins', 'tubenotes_export_count', 'tubenotes_is_registered']);
       const pins = result.tubenotes_pins || [];
+      const currentCount = result.tubenotes_export_count || 0;
+      const isRegistered = result.tubenotes_is_registered || false;
 
       // Filter pins to only include current video
       const currentVideoPins = pins.filter(pin => pin.videoId === currentVideoId);
@@ -1647,250 +1998,421 @@
         return;
       }
 
-      // Group pins by video (should only be one video now, but keeping structure for consistency)
-      const pinsByVideo = {};
-      currentVideoPins.forEach(pin => {
-        if (!pinsByVideo[pin.videoId]) {
-          pinsByVideo[pin.videoId] = {
-            videoId: pin.videoId,
-            videoTitle: pin.videoTitle,
-            pins: []
-          };
+      // Check limits
+      if (currentCount >= 3 && !isRegistered) {
+        const userChoice = await showRegistrationModal();
+        if (userChoice === 'cancel') {
+          return;
+        } else if (userChoice === 'registered') {
+          performExport(currentVideoPins, false);
+          await chrome.storage.local.set({ tubenotes_export_count: currentCount + 1 });
+        } else if (userChoice === 'limited') {
+          performExport(currentVideoPins, true);
+          await chrome.storage.local.set({ tubenotes_export_count: currentCount + 1 });
         }
-        pinsByVideo[pin.videoId].pins.push(pin);
-      });
+      } else {
+        performExport(currentVideoPins, false);
+        await chrome.storage.local.set({ tubenotes_export_count: currentCount + 1 });
+      }
 
-      // Sort pins within each video by timestamp
-      Object.values(pinsByVideo).forEach(video => {
-        video.pins.sort((a, b) => a.timestamp - b.timestamp);
-      });
-
-      // Generate HTML content
-      const htmlContent = generateHTMLExport(pinsByVideo);
-
-      // Create download
-      const blob = new Blob([htmlContent], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `tubenotes-export-${new Date().toISOString().split('T')[0]}.html`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      alert(`Exported ${currentVideoPins.length} notes to HTML file!`);
     } catch (error) {
       console.error('Error exporting to HTML:', error);
       alert('Error exporting notes. Please try again.');
     }
   }
 
+  // Show registration modal
+  function showRegistrationModal() {
+    return new Promise((resolve) => {
+      // Create modal container
+      const modalOverlay = document.createElement('div');
+      modalOverlay.style.cssText = `
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 10000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: Roboto, Arial, sans-serif;
+  `;
+
+      const modalContent = document.createElement('div');
+      modalContent.style.cssText = `
+  background: #0f0f0f;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 24px;
+  width: 400px;
+  max-width: 90%;
+  color: white;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  `;
+
+      modalContent.innerHTML = `
+    <h2 style="margin: 0 0 16px 0; font-size: 20px;">Export Limit Reached</h2>
+        <p style="margin: 0 0 20px 0; color: #aaa; line-height: 1.5;">
+          You've used your 3 free full exports. To continue exporting with full notes and transcripts, please register (it's free!).
+        </p>
+        
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; margin-bottom: 8px; font-size: 14px; color: #ccc;">Email Address</label>
+          <input type="email" id="tubenotes-reg-email" placeholder="your@email.com" style="
+            width: 100%;
+            padding: 10px;
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            box-sizing: border-box;
+          ">
+          <div id="tubenotes-reg-error" style="color: #ff4e45; font-size: 12px; margin-top: 5px; display: none;">Please enter a valid email</div>
+        </div>
+
+        <button id="tubenotes-reg-btn" style="
+          width: 100%;
+          padding: 10px;
+          background: #3ea6ff;
+          color: black;
+          border: none;
+          border-radius: 6px;
+          font-weight: 500;
+          cursor: pointer;
+          margin-bottom: 12px;
+        ">
+          Register & Export Full Notes
+        </button>
+
+        <button id="tubenotes-limit-btn" style="
+          width: 100%;
+          padding: 10px;
+          background: transparent;
+          color: #aaa;
+          border: 1px solid #333;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 13px;
+        ">
+          Continue with Limited Export (No text/audio notes)
+        </button>
+
+        <div style="text-align: center; margin-top: 12px;">
+          <button id="tubenotes-cancel-btn" style="
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 12px;
+            text-decoration: underline;
+          ">Cancel</button>
+        </div>
+  `;
+
+      modalOverlay.appendChild(modalContent);
+      document.body.appendChild(modalOverlay);
+
+      const emailInput = modalContent.querySelector('#tubenotes-reg-email');
+      const regBtn = modalContent.querySelector('#tubenotes-reg-btn');
+      const limitBtn = modalContent.querySelector('#tubenotes-limit-btn');
+      const cancelBtn = modalContent.querySelector('#tubenotes-cancel-btn');
+      const errorMsg = modalContent.querySelector('#tubenotes-reg-error');
+
+      // Helper to close modal
+      const closeModal = () => {
+        document.body.removeChild(modalOverlay);
+      };
+
+      // Register handler
+      regBtn.addEventListener('click', async () => {
+        const email = emailInput.value.trim();
+        if (!email || !email.includes('@')) {
+          errorMsg.style.display = 'block';
+          return;
+        }
+
+        // Mock registration: Save valid email and set registered flag
+        await chrome.storage.local.set({
+          tubenotes_is_registered: true,
+          tubenotes_user_email: email
+        });
+
+        closeModal();
+        resolve('registered');
+      });
+
+      // Limited export handler
+      limitBtn.addEventListener('click', () => {
+        closeModal();
+        resolve('limited');
+      });
+
+      // Cancel handler
+      cancelBtn.addEventListener('click', () => {
+        closeModal();
+        resolve('cancel');
+      });
+    });
+  }
+
+  // Helper to actually perform export
+  function performExport(currentVideoPins, isRestricted) {
+    // Group pins by video (should only be one video now, but keeping structure for consistency)
+    const pinsByVideo = {};
+    currentVideoPins.forEach(pin => {
+      if (!pinsByVideo[pin.videoId]) {
+        pinsByVideo[pin.videoId] = {
+          videoId: pin.videoId,
+          videoTitle: pin.videoTitle,
+          pins: []
+        };
+      }
+      pinsByVideo[pin.videoId].pins.push(pin);
+    });
+
+    // Sort pins within each video by timestamp
+    Object.values(pinsByVideo).forEach(video => {
+      video.pins.sort((a, b) => a.timestamp - b.timestamp);
+    });
+
+    // Generate HTML content
+    const htmlContent = generateHTMLExport(pinsByVideo, isRestricted);
+
+    // Create download
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tubenotes-export-${isRestricted ? 'limited-' : ''}${new Date().toISOString().split('T')[0]}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    if (isRestricted) {
+      alert(`Exported ${currentVideoPins.length} items(Limited Mode: Screen / Video only).`);
+    } else {
+      alert(`Exported ${currentVideoPins.length} notes to HTML file!`);
+    }
+  }
+
   // Generate HTML content for export
-  function generateHTMLExport(pinsByVideo) {
+  function generateHTMLExport(pinsByVideo, isRestricted = false) {
     const exportDate = new Date().toLocaleString();
     let html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TubeNotes Export</title>
-  <style>
-    html {
-      overflow-x: hidden;
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>TubeNotes Export</title>
+            <style>
+              html {
+                overflow-x: hidden;
     }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      margin: 0;
-      padding: 0;
-      background: #0f0f0f;
-      color: #ffffff;
-      line-height: 1.6;
-      width: 100vw;
-      min-height: 100vh;
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+              margin: 0;
+              padding: 0;
+              background: #0f0f0f;
+              color: #ffffff;
+              line-height: 1.6;
+              width: 100vw;
+              min-height: 100vh;
     }
-    .content-wrapper {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 40px 20px;
-      transform: scale(0.85);
-      transform-origin: top center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+              .content-wrapper {
+                max-width: 1200px;
+              margin: 0 auto;
+              padding: 40px 20px;
+              transform: scale(0.85);
+              transform-origin: top center;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
     }
     .content-wrapper > * {
-      width: 100%;
-      max-width: 1200px;
+                width: 100%;
+              max-width: 1200px;
     }
-    h1 {
-      color: #ffffff;
-      border-bottom: 2px solid rgba(255, 255, 255, 0.3);
-      padding-bottom: 10px;
+              h1 {
+                color: #ffffff;
+              border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+              padding-bottom: 10px;
     }
-    .video-section {
-      margin: 40px 0;
-      padding: 20px;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 8px;
-      border-left: 4px solid rgba(255, 255, 255, 0.3);
+              .video-section {
+                margin: 40px 0;
+              padding: 20px;
+              background: rgba(255, 255, 255, 0.05);
+              border-radius: 8px;
+              border-left: 4px solid rgba(255, 255, 255, 0.3);
     }
-    .video-title {
-      font-size: 24px;
-      font-weight: 600;
-      margin-bottom: 10px;
-      color: #ffffff;
+              .video-title {
+                font-size: 24px;
+              font-weight: 600;
+              margin-bottom: 10px;
+              color: #ffffff;
     }
-    .video-link {
-      color: rgba(255, 255, 255, 0.8);
-      text-decoration: none;
-      font-size: 14px;
+              .video-link {
+                color: rgba(255, 255, 255, 0.8);
+              text-decoration: none;
+              font-size: 14px;
     }
-    .video-link:hover {
-      text-decoration: underline;
+              .video-link:hover {
+                text-decoration: underline;
     }
-    .pin-item {
-      margin: 20px 0;
-      padding: 15px;
-      background: rgba(255, 255, 255, 0.03);
-      border-radius: 6px;
-      border-left: 3px solid rgba(255, 255, 255, 0.3);
+              .pin-item {
+                margin: 20px 0;
+              padding: 15px;
+              background: rgba(255, 255, 255, 0.03);
+              border-radius: 6px;
+              border-left: 3px solid rgba(255, 255, 255, 0.3);
     }
-    .pin-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
+              .pin-header {
+                display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 10px;
     }
-    .pin-timestamp {
-      background: rgba(62, 166, 255, 0.2);
-      color: #3ea6ff;
-      padding: 4px 12px;
-      border-radius: 4px;
-      font-weight: 500;
-      font-size: 14px;
-      text-decoration: none;
-      display: inline-block;
-      transition: all 0.2s;
+              .pin-timestamp {
+                background: rgba(62, 166, 255, 0.2);
+              color: #3ea6ff;
+              padding: 4px 12px;
+              border-radius: 4px;
+              font-weight: 500;
+              font-size: 14px;
+              text-decoration: none;
+              display: inline-block;
+              transition: all 0.2s;
     }
-    .pin-timestamp:hover {
-      background: rgba(62, 166, 255, 0.4);
-      color: #5cb3ff;
-      cursor: pointer;
+              .pin-timestamp:hover {
+                background: rgba(62, 166, 255, 0.4);
+              color: #5cb3ff;
+              cursor: pointer;
     }
-    .pin-date {
-      color: rgba(255, 255, 255, 0.5);
-      font-size: 12px;
+              .pin-date {
+                color: rgba(255, 255, 255, 0.5);
+              font-size: 12px;
     }
-    .pin-screenshot {
-      max-width: 600px;
-      width: 100%;
-      
-      border-radius: 6px;
-      margin: 10px 0;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+              .pin-screenshot {
+                max-width: 600px;
+              width: 100%;
+
+              border-radius: 6px;
+              margin: 10px 0;
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
-    .pin-screenshot-container {
-      margin: 10px 0;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      width: 100%;
-      max-width: 600px;
-      box-sizing: border-box;
+              .pin-screenshot-container {
+                margin: 10px 0;
+              display: flex;
+              flex-direction: column;
+              align-items: flex-start;
+              width: 100%;
+              max-width: 600px;
+              box-sizing: border-box;
     }
-    .pin-video-container {
-      margin: 10px 0;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      width: 100%;
-      max-width: 600px;
-      box-sizing: border-box;
+              .pin-video-container {
+                margin: 10px 0;
+              display: flex;
+              flex-direction: column;
+              align-items: flex-start;
+              width: 100%;
+              max-width: 600px;
+              box-sizing: border-box;
     }
-    .pin-video-clip {
-      max-width: 600px;
-      width: 100%;
-      border-radius: 6px;
-      margin: 10px 0;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-      background: #000;
-      max-height: 338px;
-      display: block;
-      box-sizing: border-box;
+              .pin-video-clip {
+                max-width: 600px;
+              width: 100%;
+              border-radius: 6px;
+              margin: 10px 0;
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+              background: #000;
+              max-height: 338px;
+              display: block;
+              box-sizing: border-box;
     }
-    .pin-transcript {
-      background: rgba(255, 255, 255, 0.05);
-      padding: 12px;
-      border-radius: 4px;
-      margin: 10px 0;
-      font-style: italic;
-      color: rgba(255, 255, 255, 0.9);
+              .pin-transcript {
+                background: rgba(255, 255, 255, 0.05);
+              padding: 12px;
+              border-radius: 4px;
+              margin: 10px 0;
+              font-style: italic;
+              color: rgba(255, 255, 255, 0.9);
     }
-    .pin-notes {
-      background: rgba(255, 255, 255, 0.08);
-      padding: 8px 24px 12px 24px;
-      border-radius: 6px;
-      margin: 10px 0;
-      border-left: 3px solid rgba(255, 255, 255, 0.2);
-      white-space: pre-wrap;
-      font-size: 16px;
-      line-height: 1.5;
-      max-width: 600px;
-      width: 100%;
-      box-sizing: border-box;
-      text-align: left;
-      color: rgba(255, 255, 255, 0.95);
+              .pin-notes {
+                background: rgba(255, 255, 255, 0.08);
+              padding: 8px 24px 12px 24px;
+              border-radius: 6px;
+              margin: 10px 0;
+              border-left: 3px solid rgba(255, 255, 255, 0.2);
+              white-space: pre-wrap;
+              font-size: 16px;
+              line-height: 1.5;
+              max-width: 600px;
+              width: 100%;
+              box-sizing: border-box;
+              text-align: left;
+              color: rgba(255, 255, 255, 0.95);
     }
-    .pin-notes strong {
-      font-size: 14px;
-      display: block;
-      margin-bottom: 6px;
-      margin-top: 0;
-      padding: 0;
-      font-weight: 600;
-      text-align: left;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: rgba(255, 255, 255, 0.7);
-      line-height: 1.5;
+              .pin-notes strong {
+                font - size: 14px;
+              display: block;
+              margin-bottom: 6px;
+              margin-top: 0;
+              padding: 0;
+              font-weight: 600;
+              text-align: left;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              color: rgba(255, 255, 255, 0.7);
+              line-height: 1.5;
     }
-    .pin-notes-content {
-      display: block;
-      margin-top: 0;
-      padding-top: 0;
-      white-space: pre-wrap;
+              .pin-notes-content {
+                display: block;
+              margin-top: 0;
+              padding-top: 0;
+              white-space: pre-wrap;
     }
-    .pin-audio {
-      margin: 10px 0;
+              .pin-audio {
+                margin: 10px 0;
     }
-    .pin-audio strong {
-      display: block;
-      margin-bottom: 3px;
+              .pin-audio strong {
+                display: block;
+              margin-bottom: 3px;
     }
-    .pin-audio audio {
-      width: 100%;
-      max-width: 350px;
-      height: 32px;
+              .pin-audio audio {
+                width: 100%;
+              max-width: 350px;
+              height: 32px;
     }
-    .export-info {
-      color: rgba(255, 255, 255, 0.6);
-      font-size: 14px;
-      margin-bottom: 30px;
-      padding: 10px;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 4px;
+              .export-info {
+                color: rgba(255, 255, 255, 0.6);
+              font-size: 14px;
+              margin-bottom: 30px;
+              padding: 10px;
+              background: rgba(255, 255, 255, 0.05);
+              border-radius: 4px;
     }
-  </style>
-</head>
-<body>
-  <div class="content-wrapper">
-    <h1>TubeNotes Export</h1>
-    <div class="export-info">
-      Exported on: ${exportDate}<br>
-      Total notes: ${Object.values(pinsByVideo).reduce((sum, v) => sum + v.pins.length, 0)}
-    </div>
-`;
+              .restricted-notice {
+                background: rgba(255, 204, 0, 0.1);
+              border: 1px solid rgba(255, 204, 0, 0.3);
+              color: #ffcc00;
+              padding: 12px;
+              border-radius: 6px;
+              margin-bottom: 20px;
+              text-align: center;
+    }
+            </style>
+          </head>
+          <body>
+            <div class="content-wrapper">
+              <h1>TubeNotes Export</h1>
+              <div class="export-info">
+                Exported on: ${exportDate}<br>
+                  Total notes: ${Object.values(pinsByVideo).reduce((sum, v) => sum + v.pins.length, 0)}
+              </div>
+              `;
 
     // Generate content for each video
     Object.values(pinsByVideo).forEach(video => {
@@ -1905,11 +2427,11 @@
         const pinDate = new Date(pin.date).toLocaleString();
         const videoUrlWithTimestamp = `https://www.youtube.com/watch?v=${video.videoId}&t=${pin.timestamp}s`;
         html += `
-    <div class="pin-item">
-      <div class="pin-header">
-        <a href="${videoUrlWithTimestamp}" target="_blank" class="pin-timestamp">${formatTimestamp(pin.timestamp)}</a>
-        <span class="pin-date">${pinDate}</span>
-      </div>`;
+              <div class="pin-item">
+                <div class="pin-header">
+                  <a href="${videoUrlWithTimestamp}" target="_blank" class="pin-timestamp">${formatTimestamp(pin.timestamp)}</a>
+                  <span class="pin-date">${pinDate}</span>
+                </div>`;
 
         if (pin.videoClip) {
           html += `
@@ -1928,45 +2450,50 @@
       </div>`;
         }
 
-        if (pin.transcript) {
-          html += `
-      <div class="pin-transcript">
-        <strong>Transcript:</strong> ${escapeHtml(pin.transcript)}
-      </div>`;
-        }
+        // CONDITIONAL RENDERING FOR RESTRICTED MODE
+        if (!isRestricted) {
+          if (pin.transcript) {
+            html += `
+          <div class="pin-transcript">
+            <strong>Transcript:</strong> ${escapeHtml(pin.transcript)}
+          </div>`;
+          }
 
-        if (pin.notes) {
-          const trimmedNotes = pin.notes.trim();
-          html += `<div class="pin-notes"><strong>Notes:</strong><span class="pin-notes-content">${escapeHtml(trimmedNotes)}</span></div>`;
-        }
+          if (pin.notes) {
+            const trimmedNotes = pin.notes.trim();
+            html += `<div class="pin-notes"><strong>Notes:</strong><span class="pin-notes-content">${escapeHtml(trimmedNotes)}</span></div>`;
+          }
 
-        if (pin.audio) {
-          html += `
-      <div class="pin-audio">
-        <strong>Audio Note:</strong>
-        <audio controls>
-          <source src="${pin.audio}" type="audio/webm">
-          <source src="${pin.audio}" type="audio/mp4">
-          Your browser does not support the audio element.
-        </audio>
-      </div>`;
+          if (pin.audio) {
+            html += `
+          <div class="pin-audio">
+            <strong>Audio Note:</strong>
+            <audio controls>
+              <source src="${pin.audio}" type="audio/webm">
+              <source src="${pin.audio}" type="audio/mp4">
+              Your browser does not support the audio element.
+            </audio>
+          </div>`;
+          }
         }
 
         html += `
-    </div>`;
+              </div>`;
       });
 
       html += `
-  </div>`;
+            </div>`;
     });
 
     html += `
-  </div>
-</body>
-</html>`;
+          </div>
+        </body>
+    </html>`;
 
     return html;
-  }
+  };
+
+
 
   // Escape HTML to prevent XSS
   function escapeHtml(text) {
@@ -2081,6 +2608,13 @@
 
   // Clean up panel and listeners
   function cleanupPanel(keepButton = false) {
+    // Analytics: Session End
+    if (sessionStartTime > 0) {
+      const duration = (Date.now() - sessionStartTime) / 1000;
+      if (analytics) analytics.logEvent('session_end', { duration_seconds: duration });
+      sessionStartTime = 0;
+    }
+
     if (sidePanel && sidePanel.parentNode) {
       removeEventListeners();
       sidePanel.remove();
@@ -2222,7 +2756,7 @@
     const currentVideoId = new URLSearchParams(location.search).get('v') || '';
 
     if (currentVideoId && currentVideoId !== lastVideoId) {
-      console.log(`TubeNotes: Video changed from ${lastVideoId} to ${currentVideoId}`);
+      console.log(`TubeNotes: Video changed from ${lastVideoId} to ${currentVideoId} `);
       lastVideoId = currentVideoId;
       cleanupPanel();
       waitingForNavigation = true;

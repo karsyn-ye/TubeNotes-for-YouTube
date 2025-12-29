@@ -17,6 +17,7 @@ TubeNotes allows users to seamlessly capture and annotate moments from YouTube v
 - ⏱️ **Timestamp Navigation**: Click timestamps to jump to that moment in the video
 - 📥 **HTML Export**: Export all notes, video clips, screenshots, and audio recordings as a responsive, self-contained HTML file
 - 💾 **Local Storage**: All pinned moments are saved locally with unlimited storage
+- 🔐 **User Accounts**: Secure login and registration powered by Google Firebase
 - 🗑️ **Easy Management**: Delete individual pinned moments
 - 🎨 **Modern UI**: Clean black and white minimalism theme that matches YouTube's interface
 
