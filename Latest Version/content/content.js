@@ -90,15 +90,15 @@
         thumb.style.left = '28px';
         track.style.background = 'rgba(255, 255, 255, 0.7)';
         icon.style.filter = 'none';
-        toggleBtn.setAttribute('aria-label', 'TubeNotes is on');
-        toggleBtn.setAttribute('title', 'TubeNotes is on');
+        toggleBtn.setAttribute('aria-label', 'TubeNotes for YouTube is on');
+        toggleBtn.setAttribute('title', 'TubeNotes for YouTube is on');
       } else {
         // Slide to left
         thumb.style.left = '4px';
         track.style.background = 'rgba(255, 255, 255, 0.35)';
         icon.style.filter = 'grayscale(100%)';
-        toggleBtn.setAttribute('aria-label', 'TubeNotes is off');
-        toggleBtn.setAttribute('title', 'TubeNotes is off');
+        toggleBtn.setAttribute('aria-label', 'TubeNotes for YouTube is off');
+        toggleBtn.setAttribute('title', 'TubeNotes for YouTube is off');
       }
     }
   }
@@ -163,7 +163,7 @@
 
       panel.innerHTML = `
         <div class="tubenotes-header">
-          <h2>TubeNotes</h2>
+          <h2>TubeNotes for YouTube</h2>
           <div class="tubenotes-header-actions">
             <button id="tubenotes-close-btn" class="tubenotes-close-btn" aria-label="Close" title="Close">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -369,7 +369,7 @@
     // Add Sign Out SVG icon (a door with arrow)
     panel.innerHTML = `
       <div class="tubenotes-header">
-        <h2>TubeNotes</h2>
+        <h2>TubeNotes for YouTube</h2>
         <div class="tubenotes-header-actions">
 
           <button id="tubenotes-sort-btn" class="tubenotes-sort-btn" aria-label="Sort" title="Sort">
@@ -451,8 +451,8 @@
     const toggleBtn = document.createElement('button');
     toggleBtn.id = 'tubenotes-toggle-btn';
     toggleBtn.className = 'ytp-button';
-    toggleBtn.setAttribute('aria-label', 'TubeNotes is off');
-    toggleBtn.setAttribute('title', 'TubeNotes is off');
+    toggleBtn.setAttribute('aria-label', 'TubeNotes for YouTube is off');
+    toggleBtn.setAttribute('title', 'TubeNotes for YouTube is off');
 
     // Create sliding toggle switch
     let iconUrl;
