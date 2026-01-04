@@ -370,14 +370,16 @@
         <h2>TubeNotes</h2>
         <div class="tubenotes-header-actions">
 
-          <button id="tubenotes-sort-btn" class="tubenotes-sort-btn" aria-label="Sort" title="Sort">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>
-            </svg>
-          </button>
-          <button id="tubenotes-export-html-btn" class="tubenotes-export-btn" aria-label="Export" title="Export">
+          <button id="tubenotes-export-html-btn" class="tubenotes-export-btn" aria-label="Download" title="Download">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+          </button>
+          <button id="tubenotes-cloud-btn" class="tubenotes-cloud-btn" aria-label="Save to Cloud" title="Save to Cloud (Coming Soon)" style="cursor: default; opacity: 0.5;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/>
+              <path d="M12 12v9"/>
+              <path d="m8 17 4 4 4-4"/>
             </svg>
           </button>
           <button id="tubenotes-account-btn" class="tubenotes-account-btn" aria-label="Account" title="Account (Coming Soon)" style="cursor: default; opacity: 0.5;">
@@ -1536,16 +1538,8 @@
       return;
     }
 
-    // Get sort order preference (default: newest-first)
-    const sortResult = await chrome.storage.local.get(['tubenotes_sort_order']);
-    const sortOrder = sortResult.tubenotes_sort_order || 'newest-first';
-
-    // Sort by timestamp based on preference
-    if (sortOrder === 'newest-first') {
-      currentVideoPins.sort((a, b) => b.timestamp - a.timestamp);
-    } else {
-      currentVideoPins.sort((a, b) => a.timestamp - b.timestamp);
-    }
+    // Sort by timestamp (newest-first by default)
+    currentVideoPins.sort((a, b) => b.timestamp - a.timestamp);
 
     // Render pinned items
     pinnedList.innerHTML = currentVideoPins.map(pin => `
@@ -2655,7 +2649,6 @@
     const sortBtn = document.getElementById('tubenotes-sort-btn');
     if (!sortBtn) return;
 
-    sortBtn.title = 'Sort';
     sortBtn.setAttribute('aria-label', 'Sort');
   }
 
