@@ -1,4 +1,4 @@
-# TubeNotes for YouTube
+# TubeNotes
 
 A Chrome extension to help people take quick notes while watching YouTube videos. Don't just watch videos. Interact.
 

@@ -105,6 +105,27 @@
   background-color: rgba(255, 255, 255, 0.1);
 }
 
+.tubenotes-account-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  line-height: 1;
+}
+
+.tubenotes-account-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
 .tubenotes-controls {
   margin-bottom: 16px;
 }
@@ -120,12 +141,14 @@
 
 .tubenotes-pin-btn {
   width: 100%;
-  padding: 12px 16px;
+  padding: 10px 4px;
+  /* Reduced side padding */
   background: #ffffff;
   color: #000000;
   border: none;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
+  /* Slightly smaller font */
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;

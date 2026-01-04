@@ -90,15 +90,15 @@
         thumb.style.left = '28px';
         track.style.background = 'rgba(255, 255, 255, 0.7)';
         icon.style.filter = 'none';
-        toggleBtn.setAttribute('aria-label', 'TubeNotes for YouTube is on');
-        toggleBtn.setAttribute('title', 'TubeNotes for YouTube is on');
+        toggleBtn.setAttribute('aria-label', 'TubeNotes is on');
+        toggleBtn.setAttribute('title', 'TubeNotes is on');
       } else {
         // Slide to left
         thumb.style.left = '4px';
         track.style.background = 'rgba(255, 255, 255, 0.35)';
         icon.style.filter = 'grayscale(100%)';
-        toggleBtn.setAttribute('aria-label', 'TubeNotes for YouTube is off');
-        toggleBtn.setAttribute('title', 'TubeNotes for YouTube is off');
+        toggleBtn.setAttribute('aria-label', 'TubeNotes is off');
+        toggleBtn.setAttribute('title', 'TubeNotes is off');
       }
     }
   }
@@ -135,11 +135,9 @@
     sidePanel = panel;
     eventListenersAttached = false;
 
-    // Check login status
-    checkLoginStatus().then(isLoggedIn => {
-      if (isLoggedIn) renderMainInterface(panel);
-      else renderLoginInterface(panel);
-    });
+    // Default to main interface (Guest Mode)
+    // Auth is now optional and accessed via the Account icon
+    renderMainInterface(panel);
 
     return panel;
   }
@@ -163,7 +161,7 @@
 
       panel.innerHTML = `
         <div class="tubenotes-header">
-          <h2>TubeNotes for YouTube</h2>
+          <h2>TubeNotes</h2>
           <div class="tubenotes-header-actions">
             <button id="tubenotes-close-btn" class="tubenotes-close-btn" aria-label="Close" title="Close">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -369,7 +367,7 @@
     // Add Sign Out SVG icon (a door with arrow)
     panel.innerHTML = `
       <div class="tubenotes-header">
-        <h2>TubeNotes for YouTube</h2>
+        <h2>TubeNotes</h2>
         <div class="tubenotes-header-actions">
 
           <button id="tubenotes-sort-btn" class="tubenotes-sort-btn" aria-label="Sort" title="Sort">
@@ -380,6 +378,12 @@
           <button id="tubenotes-export-html-btn" class="tubenotes-export-btn" aria-label="Export" title="Export">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+          </button>
+          <button id="tubenotes-account-btn" class="tubenotes-account-btn" aria-label="Account" title="Account (Coming Soon)" style="cursor: default; opacity: 0.5;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
             </svg>
           </button>
           <button id="tubenotes-close-btn" class="tubenotes-close-btn" aria-label="Close" title="Close">
@@ -396,18 +400,19 @@
             <circle cx="9" cy="9" r="2"/>
             <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
           </svg>
-          Screenshot
+          Pin Screenshot
         </button>
         <button id="tubenotes-pin-video-btn" class="tubenotes-pin-btn tubenotes-pin-video">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pin-icon">
             <rect width="14" height="14" x="2" y="5" rx="2" ry="2"/>
             <path d="m22 8-6 4 6 4V8z"/>
           </svg>
-          Video
+          </svg>
+          Pin Video Clip
         </button>
       </div>
       <div class="tubenotes-pinned-list" id="tubenotes-pinned-list">
-        <div class="tubenotes-empty-state">Learning something great?<br>Pin it and take your quick note!</div>
+        <div class="tubenotes-empty-state">Learning something great?<br>Pin it and add your quick note!</div>
       </div>
     `;
 
@@ -419,7 +424,7 @@
 
     // Attach Sign Out Listener
     const signOutBtn = panel.querySelector('#tubenotes-signout-btn');
-    if (signOutBtn && auth) {
+    if (signOutBtn && typeof auth !== 'undefined') {
       signOutBtn.addEventListener('click', () => {
         if (confirm('Are you sure you want to sign out?')) {
           auth.signOut().then(() => {
@@ -428,6 +433,134 @@
         }
       });
     }
+
+    // Attach Account Button Listener
+    const accountBtn = panel.querySelector('#tubenotes-account-btn');
+    if (accountBtn) {
+      // Disabled for now
+      // accountBtn.addEventListener('click', () => {
+      //   renderLoginInterface(panel);
+      // });
+    }
+  }
+
+  // Check and show onboarding popup
+  function checkAndShowOnboarding() {
+    chrome.storage.local.get(['hasSeenOnboarding'], (result) => {
+      if (!result.hasSeenOnboarding) {
+        showOnboardingPopup();
+      }
+    });
+  }
+
+  // Show onboarding popup
+  function showOnboardingPopup() {
+    // Check if valid URL
+    let imageUrl;
+    try {
+      imageUrl = chrome.runtime.getURL('assets/onboarding-guide.png');
+    } catch (e) {
+      console.warn('TubeNotes: Extension context invalidated, skipping onboarding.');
+      return;
+    }
+
+    // Check if popup already exists
+    if (document.getElementById('tubenotes-onboarding-popup')) return;
+
+    const popup = document.createElement('div');
+    popup.id = 'tubenotes-onboarding-popup';
+    popup.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    `;
+
+    popup.innerHTML = `
+      <div style="
+        background: #1f1f1f;
+        padding: 24px;
+        border-radius: 16px;
+        max-width: 90%;
+        width: 600px;
+        text-align: center;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        border: 1px solid rgba(255,255,255,0.1);
+        position: relative;
+        transform: scale(0.9);
+        transition: transform 0.3s ease;
+      ">
+        <button id="tubenotes-onboarding-close" style="
+          position: absolute;
+          top: 16px;
+          right: 16px;
+          background: none;
+          border: none;
+          color: #aaa;
+          cursor: pointer;
+          padding: 4px;
+        ">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6 6 18M6 6l12 12"/>
+          </svg>
+        </button>
+        
+        <h2 style="color: white; margin: 0 0 16px 0; font-size: 24px;">Welcome to TubeNotes!</h2>
+        <p style="color: #ccc; margin-bottom: 24px; font-size: 16px;">Get started by clicking the toggle button in the player controls :) </p>
+        
+        <div style="
+          margin-bottom: 24px;
+          border-radius: 8px;
+          overflow: hidden;
+          border: 1px solid rgba(255,255,255,0.1);
+        ">
+          <img src="${imageUrl}" style="width: 100%; display: block;" alt="TubeNotes Onboarding Guide">
+        </div>
+        
+        <button id="tubenotes-onboarding-got-it" style="
+          background: #ffffff;
+          color: black;
+          border: none;
+          padding: 10px 24px;
+          border-radius: 20px;
+          font-weight: 600;
+          font-size: 14px;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">Got it!</button>
+      </div>
+    `;
+
+    document.body.appendChild(popup);
+
+    // Animate in
+    requestAnimationFrame(() => {
+      popup.style.opacity = '1';
+      popup.querySelector('div').style.transform = 'scale(1)';
+    });
+
+    const closePopup = () => {
+      popup.style.opacity = '0';
+      popup.querySelector('div').style.transform = 'scale(0.9)';
+      setTimeout(() => {
+        popup.remove();
+        chrome.storage.local.set({ hasSeenOnboarding: true });
+      }, 300);
+    };
+
+    popup.querySelector('#tubenotes-onboarding-close').addEventListener('click', closePopup);
+    popup.querySelector('#tubenotes-onboarding-got-it').addEventListener('click', closePopup);
+    popup.addEventListener('click', (e) => {
+      if (e.target === popup) closePopup();
+    });
   }
 
 
@@ -451,8 +584,8 @@
     const toggleBtn = document.createElement('button');
     toggleBtn.id = 'tubenotes-toggle-btn';
     toggleBtn.className = 'ytp-button';
-    toggleBtn.setAttribute('aria-label', 'TubeNotes for YouTube is off');
-    toggleBtn.setAttribute('title', 'TubeNotes for YouTube is off');
+    toggleBtn.setAttribute('aria-label', 'TubeNotes is off');
+    toggleBtn.setAttribute('title', 'TubeNotes is off');
 
     // Create sliding toggle switch
     let iconUrl;
@@ -527,6 +660,9 @@
     // Insert button into left controls (after play button and volume)
     controls.appendChild(toggleBtn);
     console.log('TubeNotes: Toggle button created in left controls');
+
+    // Show onboarding popup if first time
+    checkAndShowOnboarding();
   }
 
   // Inject panel into YouTube's container (not independent)
@@ -1274,12 +1410,12 @@
       // Show success feedback
       pinBtn.innerHTML = `${screenshotIcon} Captured!`;
       setTimeout(() => {
-        pinBtn.innerHTML = `${screenshotIcon} Screenshot`;
+        pinBtn.innerHTML = `${screenshotIcon} Pin Screenshot`;
         pinBtn.disabled = false;
       }, 1000);
     } catch (error) {
       console.error('Error capturing screenshot:', error);
-      pinBtn.innerHTML = `${screenshotIcon} Screenshot`;
+      pinBtn.innerHTML = `${screenshotIcon} Pin Screenshot`;
       pinBtn.disabled = false;
 
       // Handle quota exceeded error specifically
@@ -1364,12 +1500,12 @@
       // Show success feedback
       pinBtn.innerHTML = `${videoIcon} Captured!`;
       setTimeout(() => {
-        pinBtn.innerHTML = `${videoIcon} Video`;
+        pinBtn.innerHTML = `${videoIcon} Pin Video Clip`;
         pinBtn.disabled = false;
       }, 1000);
     } catch (error) {
       console.error('Error pinning:', error);
-      pinBtn.innerHTML = `${videoIcon} Video`;
+      pinBtn.innerHTML = `${videoIcon} Pin Video Clip`;
       pinBtn.disabled = false;
 
       // Handle quota exceeded error specifically
@@ -1396,7 +1532,7 @@
     const currentVideoPins = pins.filter(pin => pin.videoId === currentVideoId);
 
     if (currentVideoPins.length === 0) {
-      pinnedList.innerHTML = '<div class="tubenotes-empty-state">Learning something great?<br>Pin it and take your quick note!</div>';
+      pinnedList.innerHTML = '<div class="tubenotes-empty-state">Learning something great?<br>Pin it and add your quick note!</div>';
       return;
     }
 

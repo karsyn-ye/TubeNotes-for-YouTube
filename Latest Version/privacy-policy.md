@@ -1,8 +1,8 @@
-# TubeNotes for YouTube Privacy Policy
+# TubeNotes Privacy Policy
 
-**Effective date:** 2025-12-29
+**Last Updated:** December 1, 2024
 
-TubeNotes for YouTube helps you capture YouTube timestamps, transcripts, notes, and media for your personal use. We prioritize your privacy and store your personal content locally.
+TubeNotes helps you capture YouTube timestamps, transcripts, notes, and media for your personal use. We prioritize your privacy and store your personal content locally.
 
 ## Data We Collect
 
