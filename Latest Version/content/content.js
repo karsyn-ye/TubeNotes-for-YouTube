@@ -409,7 +409,7 @@
             <rect width="14" height="14" x="2" y="5" rx="2" ry="2"/>
             <path d="m22 8-6 4 6 4V8z"/>
           </svg>
-          </svg>
+
           Pin Video Clip
         </button>
       </div>
