@@ -2662,11 +2662,12 @@
       return;
     }
 
-    const pinScreenshotBtn = document.getElementById('tubenotes-pin-screenshot-btn');
-    const pinVideoBtn = document.getElementById('tubenotes-pin-video-btn');
-    const closeBtn = document.getElementById('tubenotes-close-btn');
-    const sortBtn = document.getElementById('tubenotes-sort-btn');
-    const exportHtmlBtn = document.getElementById('tubenotes-export-html-btn');
+    const context = sidePanel || document;
+    const pinScreenshotBtn = context.querySelector('#tubenotes-pin-screenshot-btn');
+    const pinVideoBtn = context.querySelector('#tubenotes-pin-video-btn');
+    const closeBtn = context.querySelector('#tubenotes-close-btn');
+    const sortBtn = context.querySelector('#tubenotes-sort-btn');
+    const exportHtmlBtn = context.querySelector('#tubenotes-export-html-btn');
 
     if (pinScreenshotBtn && !pinScreenshotBtn.hasAttribute('data-listener-attached')) {
       pinScreenshotBtn.addEventListener('click', handlePinScreenshotClick);
