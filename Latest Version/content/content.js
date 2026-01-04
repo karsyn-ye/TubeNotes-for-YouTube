@@ -1311,7 +1311,7 @@
       videoId: videoId,
       videoTitle: videoTitle,
       notes: '', // User notes (empty by default)
-      audio: '', // Audio recording (empty by default)
+      audio: [], // Audio recordings (array)
       date: new Date().toISOString()
     };
 
@@ -1575,21 +1575,20 @@
       }
         ${pin.transcript ? `<div class="tubenotes-transcript">${pin.transcript}</div>` : ''}
         ${pin.notes ? `<div class="tubenotes-notes-display">${pin.notes}</div>` : ''}
-        ${pin.audio ? `
-          <div class="tubenotes-audio-display" data-id="${pin.id}">
+        ${(Array.isArray(pin.audio) ? pin.audio : (pin.audio ? [pin.audio] : [])).map((audioSrc, index) => `
+          <div class="tubenotes-audio-display" data-id="${pin.id}" data-index="${index}">
             <audio controls class="tubenotes-audio-player">
-              <source src="${pin.audio}" type="audio/webm">
-              <source src="${pin.audio}" type="audio/mp4">
+              <source src="${audioSrc}" type="audio/webm">
+              <source src="${audioSrc}" type="audio/mp4">
               Your browser does not support the audio element.
             </audio>
-            <button class="tubenotes-audio-delete" data-id="${pin.id}" aria-label="Delete audio" title="Delete audio">
+            <button class="tubenotes-audio-delete" data-id="${pin.id}" data-index="${index}" aria-label="Delete audio" title="Delete audio">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 6 6 18M6 6l12 12"/>
               </svg>
             </button>
           </div>
-        ` : ''
-      }
+        `).join('')}
         <div class="tubenotes-recorder" data-id="${pin.id}" style="display: none;">
           <div class="tubenotes-recorder-status">
             <span class="tubenotes-recorder-indicator"></span>
@@ -1723,11 +1722,16 @@
       }
     });
 
-    // Add click handlers for delete audio
+    // Add click handlers for delete audio buttons
     pinnedList.querySelectorAll('.tubenotes-audio-delete').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const pinId = e.currentTarget.getAttribute('data-id');
-        await deleteAudio(pinId);
+        const indexStr = e.currentTarget.getAttribute('data-index');
+        const index = parseInt(indexStr, 10);
+
+        if (confirm('Delete this audio note?')) {
+          await deleteAudio(pinId, index);
+        }
       });
     });
 
@@ -2048,7 +2052,17 @@
       // Find and update the pin
       const pinIndex = pins.findIndex(pin => pin.id === pinId);
       if (pinIndex !== -1) {
-        pins[pinIndex].audio = audioDataUrl;
+        // Migration: Ensure audio is an array
+        let currentAudio = pins[pinIndex].audio;
+        if (!Array.isArray(currentAudio)) {
+          // If it was a string and not empty, convert to array
+          currentAudio = currentAudio ? [currentAudio] : [];
+        }
+
+        // Add new audio to the list
+        currentAudio.push(audioDataUrl);
+        pins[pinIndex].audio = currentAudio;
+
         await chrome.storage.local.set({ tubenotes_pins: pins });
       }
     } catch (error) {
@@ -2058,7 +2072,7 @@
   }
 
   // Delete audio for a pinned item
-  async function deleteAudio(pinId) {
+  async function deleteAudio(pinId, audioIndex) {
     try {
       const result = await chrome.storage.local.get(['tubenotes_pins']);
       const pins = result.tubenotes_pins || [];
@@ -2066,7 +2080,23 @@
       // Find and update the pin
       const pinIndex = pins.findIndex(pin => pin.id === pinId);
       if (pinIndex !== -1) {
-        pins[pinIndex].audio = '';
+        let currentAudio = pins[pinIndex].audio;
+
+        // Migration check
+        if (!Array.isArray(currentAudio)) {
+          if (typeof currentAudio === 'string' && currentAudio) {
+            currentAudio = [currentAudio];
+          } else {
+            return; // Nothing to delete
+          }
+        }
+
+        // Remove specific index
+        if (audioIndex >= 0 && audioIndex < currentAudio.length) {
+          currentAudio.splice(audioIndex, 1);
+        }
+
+        pins[pinIndex].audio = currentAudio;
         await chrome.storage.local.set({ tubenotes_pins: pins });
         await loadPinnedItems();
       }
@@ -2595,15 +2625,27 @@
           }
 
           if (pin.audio) {
-            html += `
-          <div class="pin-audio">
-            <strong>Audio Note:</strong>
-            <audio controls>
-              <source src="${pin.audio}" type="audio/webm">
-              <source src="${pin.audio}" type="audio/mp4">
-              Your browser does not support the audio element.
-            </audio>
-          </div>`;
+            const audioClips = Array.isArray(pin.audio) ? pin.audio : (pin.audio ? [pin.audio] : []);
+            if (audioClips.length > 0) {
+              html += `<div class="pin-audio">
+              <strong>Audio Note(s):</strong>`;
+
+              audioClips.forEach((audioSrc) => {
+                // Ensure valid src
+                if (audioSrc && typeof audioSrc === 'string' && audioSrc.length > 100) {
+                  html += `
+                   <div style="margin-bottom: 8px;">
+                     <audio controls style="width: 100%; max-width: 350px;">
+                       <source src="${audioSrc}" type="audio/webm">
+                       <source src="${audioSrc}" type="audio/mp4">
+                       Your browser does not support the audio element.
+                     </audio>
+                   </div>`;
+                }
+              });
+
+              html += `</div>`;
+            }
           }
         }
 
