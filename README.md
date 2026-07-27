@@ -7,6 +7,7 @@ A Chrome extension for taking notes without ever leaving the video. Pin screensh
 ## Features
 
 | | |
+|---|---|
 | 📸 **Screenshot pins** | Capture a still frame at the current moment |
 | 🎬 **Clip pins** | Capture a 4-second clip with sound |
 | 📝 **Transcript capture** | Subtitle text is saved automatically alongside clips |
