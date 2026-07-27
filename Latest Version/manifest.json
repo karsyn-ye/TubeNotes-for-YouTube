@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TubeNotes for YouTube",
-  "version": "2.1.1",
+  "version": "3.1.1",
   "description": "Pin YouTube screenshots/video clips, add text/audio notes, and export in one click.",
   "permissions": [
     "storage",
@@ -19,6 +19,7 @@
         "https://www.youtube.com/*"
       ],
       "js": [
+        "lib/fix-webm-duration.js",
         "lib/firebase-app.js",
         "lib/firebase-auth.js",
         "lib/firebase-analytics.js",
