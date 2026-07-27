@@ -1,16 +1,18 @@
 # TubeNotes for YouTube
 
-**Don't binge watch. Interact and learn.**
+**Don't just binge watch videos. Interact and learn.**
 
-A Chrome extension for taking notes without ever leaving the video. Pin screenshots or video clips, annotate them with text or voice, and export the notes as a single self-contained HTML file.
+A Chrome extension for taking notes without ever leaving the video. Pin screenshots or short clips, annotate them with text / voice notes, add quick text / voice notes, and export the whole session as a single self-contained HTML file.
 
 ## Features
 
 | | |
 |---|---|
 | 📸 **Screenshot pins** | Capture a still frame at the current moment |
-| 🎬 **Clip pins** | Capture a 4-second clip with sound |
+| 🎬 **Clip pins** | Record a clip of any length, with sound — up to 60 seconds |
+| ⚡ **Quick notes** | Save a thought without pinning anything — type it, or say it out loud |
 | 📝 **Transcript capture** | Subtitle text is saved automatically alongside clips |
+| 💬 **Captions in captures** | Subtitles are baked into your screenshots and clips, so the words stay with the image |
 | ✎ **Text notes** | Write and edit notes on any pinned moment |
 | 🎤 **Audio notes** | Record voice notes — the video pauses while you talk |
 | ⏱️ **Timestamp jump** | Click any timestamp to seek back to that moment |
@@ -23,7 +25,15 @@ A Chrome extension for taking notes without ever leaving the video. Pin screensh
 
 ## Install
 
+### From the Chrome Web Store
+
+**[→ Add TubeNotes for YouTube to Chrome](https://chromewebstore.google.com/detail/dccnheegnfkhhchmblppiijnbcpcacoi)**
+
+One click to install, and it updates itself automatically. This is the easiest way to get started.
+
 ### From source
+
+Only needed if you want to modify the extension or try unreleased changes.
 
 1. Clone this repository
 2. Open `chrome://extensions/`
@@ -35,9 +45,9 @@ A Chrome extension for taking notes without ever leaving the video. Pin screensh
 
 Open any YouTube watch page and the side panel appears on the right automatically.
 
-1. **Pin a moment** — the screenshot button grabs a still frame; the video button grabs a 4-second clip with sound and transcript
-2. **Add a text note** — click the pen icon (✎) on any pin
-3. **Record audio** — click the microphone icon and grant permission when prompted; the video pauses while recording
+1. **Pin a moment** — the screenshot button grabs a still frame; the video button starts recording a clip with sound and transcript, and you stop it whenever you're ready (up to 60 seconds)
+2. **Add a quick note** — type straight into the note box at the top of the panel and hit save, or tap its mic to record the thought instead. No pin needed
+3. **Annotate a text / voice note** — click the pen icon (✎) on any pin or click the microphone icon and grant permission when prompted; the video pauses while recording
 4. **Jump back** — click a pin's timestamp to seek the video there
 5. **Sort** — toggle order with the sort button, top right
 6. **Export** — the export icon downloads everything as one responsive HTML file
@@ -110,5 +120,4 @@ All changes to `main` require review and approval by the maintainer.
 
 ## License
 
-Not yet chosen. Until a license is added, default copyright applies and the code
-may not be reused or redistributed.
+Not yet chosen. Until a license is added, default copyright applies and the code may not be reused or redistributed.
