@@ -1,6 +1,6 @@
 # TubeNotes for YouTube
 
-**Don't just binge watch videos. Interact and learn.**
+**Don't just binge watch YouTube videos. Interact and learn.**
 
 A Chrome extension for taking notes without ever leaving the video. Pin screenshots or short clips, annotate them with text / voice notes, add quick text / voice notes, and export the whole session as a single self-contained HTML file.
 
